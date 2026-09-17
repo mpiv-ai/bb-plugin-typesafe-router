@@ -1,225 +1,461 @@
-// bb-plugin-typesafe-router — a BB plugin backend entry.
+// TypeSafe router — decides the harness and model for a thread's FIRST message.
 //
-// The default export is a factory that receives the plugin API. BB supplies
-// the tiny defineRpcContract runtime helper; the API type remains type-only.
+// Shape of the thing: `message.dispatch` is a checkpoint with a 10-second
+// fail-closed budget, so the hook itself only ever reads cheap state and
+// answers. The expensive part — two TypeSafe Choice calls plus a user
+// confirmation — runs off the hook as a background pass, and asks core to
+// re-decide with `experimental_hooks.recheck` when it finishes.
 //
-// The example is a todo list. One store in bb.storage.kv serves three
-// surfaces: the Example todos page (app.tsx, over RPC), the `bb typesafe-router` CLI
-// command (below), and the skill in skills/example-todos/SKILL.md that tells
-// agents how to use that command. A write from any surface publishes a realtime signal so
-// every open page refetches.
-import { randomUUID } from "node:crypto";
-import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
+// A BB thread's harness is fixed once it runs. So a proposal that keeps the
+// harness only updates the model in place, while a proposal that changes it
+// has to start a new thread carrying the same input and retire this one.
+//
+// The plugin also registers a picker stub (`lib/provider.ts`) so a new thread
+// can be sent without choosing a harness first. The stub is excluded from the
+// catalog TypeSafe chooses from, so in practice every proposal changes the
+// harness and every routed thread is a spawn.
+
+import {
+  defineRpcContract,
+  type BbPluginApi,
+  type MessageDispatchHookContext,
+} from "@get-bb/plugin-sdk";
+import { TypeSafeClient } from "@typesafe-ai/sdk";
 import { z } from "zod";
+import {
+  buildCatalog,
+  MAX_MODELS_PER_HARNESS,
+  type CatalogHarness,
+  type CatalogModel,
+} from "./lib/catalog.js";
+import {
+  decideDispatch,
+  parseRoutingRecord,
+  type RoutingPhase,
+  type RoutingRecord,
+} from "./lib/policy.js";
+import {
+  isRoutableProviderId,
+  STUB_MODEL,
+  STUB_PROVIDER_DISPLAY_NAME,
+  STUB_PROVIDER_ID,
+} from "./lib/provider.js";
+import { routeFirstMessage } from "./lib/router.js";
 
-const todoSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  done: z.boolean(),
-  createdAt: z.string(),
+/** Realtime channel the composer banner listens on. */
+const ROUTING_CHANGED = "routing-changed";
+/** Must match the `pendingInteraction` registration id in app.tsx. */
+const CONFIRM_RENDERER_ID = "typesafe-confirm";
+/** How long the confirmation card stays up before the thread proceeds as-is. */
+const CONFIRM_TIMEOUT_MS = 10 * 60_000;
+/** Provider catalogs change on install/auth, not per message. */
+const CATALOG_TTL_MS = 60_000;
+
+const routingViewSchema = z.object({
+  phase: z.enum([
+    "selecting",
+    "proposed",
+    "confirmed",
+    "redirected",
+    "skipped",
+    "failed",
+  ]),
+  providerId: z.string().nullable(),
+  providerName: z.string().nullable(),
+  model: z.string().nullable(),
+  modelName: z.string().nullable(),
+  replacementThreadId: z.string().nullable(),
+  detail: z.string().nullable(),
 });
-export type Todo = z.infer<typeof todoSchema>;
 
-// Both schemas run at the wire boundary. Handler input/output are inferred
-// from the shared contract; app.tsx imports only its type.
 export const rpcContract = defineRpcContract({
-  todos_list: {
-    input: z.null(),
-    output: z.object({ todos: z.array(todoSchema) }),
-  },
-  todos_add: {
-    input: z.object({ title: z.string().trim().min(1).max(200) }),
-    output: todoSchema,
-  },
-  todos_set_done: {
-    input: z.object({ id: z.string(), done: z.boolean() }),
-    output: todoSchema,
-  },
-  todos_remove: {
-    input: z.object({ id: z.string() }),
-    output: z.object({ removed: z.boolean() }),
+  routing_get: {
+    input: z.object({ threadId: z.string().min(1) }).strict(),
+    output: z.object({ routing: routingViewSchema.nullable() }),
   },
 });
 
-/** Realtime channel app.tsx listens on; the payload is the todo count. */
-const TODOS_CHANGED = "todos-changed";
+export type RoutingView = z.infer<typeof routingViewSchema>;
 
 export default async function plugin(bb: BbPluginApi) {
-  bb.log.info("loaded");
-
-  // Declarative settings — rendered in BB's settings UI and editable with
-  // `bb plugin config typesafe-router`. Add `secret: true` for values like API keys.
-  // Settings are read once per load: reload the plugin after changing one.
   const settings = bb.settings.define({
-    showDone: {
+    typesafeApiKey: {
+      type: "string",
+      label: "TypeSafe API key",
+      secret: true,
+    },
+    enabled: {
       type: "boolean",
-      label: "Show completed todos",
+      label: "Route first messages",
       default: true,
     },
   });
-  const { showDone } = await settings.get();
 
-  // Namespaced key-value storage in bb.db (JSON values, up to 256KB each).
-  // For bigger or relational data use bb.storage.database().
-  async function readTodos(): Promise<Todo[]> {
-    return (await bb.storage.kv.get<Todo[]>("todos")) ?? [];
-  }
-  async function writeTodos(todos: Todo[]): Promise<void> {
-    await bb.storage.kv.set("todos", todos);
-    // Ephemeral broadcast to every connected client; nothing is persisted.
-    bb.realtime.publish(TODOS_CHANGED, { count: todos.length });
+  // The picker row. Registered unconditionally — without it the New Thread page
+  // has no selectable harness for a user who wants TypeSafe to decide, and Send
+  // stays disabled. It runs nothing; see lib/provider-bridge.ts.
+  bb.providers.register({
+    id: STUB_PROVIDER_ID,
+    displayName: STUB_PROVIDER_DISPLAY_NAME,
+    icon: "Workflow",
+    experimental_visibility: "always",
+    // Nothing host-local to probe, install, or meter.
+    maintenance: { health: false, usage: false, installation: false },
+    strings: {
+      signInHint:
+        "Nothing to sign in to. TypeSafe Router only picks the harness; that harness handles its own sign-in.",
+      expiredHint:
+        "Nothing to renew. TypeSafe Router only picks the harness; that harness handles its own sign-in.",
+      installUrl: "https://github.com/mpiv-ai/bb-plugin-typesafe-router",
+    },
+    capabilities: {
+      supportsServiceTier: false,
+      supportsNativeUserQuestion: false,
+      fork: "none",
+      supportsManualCompaction: false,
+      supportsThreadArchive: false,
+      supportsThreadRename: false,
+      permissionModes: ["full"],
+      reasoningLevels: ["medium"],
+    },
+    composerActions: [],
+    // One model, always the default, so picking the provider is the whole choice.
+    models: { fallback: [STUB_MODEL], scope: "host" },
+  });
+
+  const initial = await settings.get();
+  if (!initial.typesafeApiKey) {
+    // Not an error: without a key the hook proceeds on every dispatch, so the
+    // only consequence of an unconfigured plugin is that nothing is routed.
+    bb.status.needsConfiguration(
+      "Set the TypeSafe API key with `bb plugin config typesafe-router set typesafeApiKey <key>`, then reload.",
+    );
   }
 
-  async function listTodos(): Promise<Todo[]> {
-    const todos = await readTodos();
-    return showDone ? todos : todos.filter((todo) => !todo.done);
+  // Display names for the UI, keyed by thread. Metadata carries the durable
+  // ids; this carries what a person should read.
+  const displayNames = new Map<string, { provider: string; model: string }>();
+  // Threads with a pass already in flight, so a re-attempt during the pass
+  // does not start a second one.
+  const inFlight = new Set<string>();
+
+  async function readRouting(threadId: string): Promise<RoutingRecord | null> {
+    const metadata = await bb.sdk.threads.getPluginMetadata({ threadId });
+    return parseRoutingRecord((metadata as Record<string, unknown>).routing);
   }
-  async function addTodo(title: string): Promise<Todo> {
-    const todo: Todo = {
-      id: randomUUID().slice(0, 8),
-      title,
-      done: false,
-      createdAt: new Date().toISOString(),
+
+  async function writeRouting(
+    threadId: string,
+    patch: Omit<RoutingRecord, "updatedAt">,
+  ): Promise<void> {
+    await bb.sdk.threads.updatePluginMetadata({
+      threadId,
+      set: { routing: { ...patch, updatedAt: Date.now() } },
+    });
+    bb.realtime.publish(ROUTING_CHANGED, { threadId, phase: patch.phase });
+  }
+
+  function view(threadId: string, record: RoutingRecord | null): RoutingView | null {
+    if (record === null) return null;
+    const names = displayNames.get(threadId);
+    return {
+      phase: record.phase,
+      providerId: record.providerId,
+      providerName: names?.provider ?? record.providerId,
+      model: record.model,
+      modelName: names?.model ?? record.model,
+      replacementThreadId: record.replacementThreadId,
+      detail: record.detail,
     };
-    await writeTodos([...(await readTodos()), todo]);
-    return todo;
-  }
-  async function setTodoDone(id: string, done: boolean): Promise<Todo | null> {
-    const todos = await readTodos();
-    const todo = todos.find((candidate) => candidate.id === id);
-    if (todo === undefined) return null;
-    todo.done = done;
-    await writeTodos(todos);
-    return todo;
-  }
-  async function removeTodo(id: string): Promise<boolean> {
-    const todos = await readTodos();
-    const remaining = todos.filter((todo) => todo.id !== id);
-    if (remaining.length === todos.length) return false;
-    await writeTodos(remaining);
-    return true;
   }
 
   bb.rpc.register(rpcContract, {
-    todos_list: async () => ({ todos: await listTodos() }),
-    todos_add: ({ title }) => addTodo(title),
-    todos_set_done: async ({ id, done }) => {
-      const todo = await setTodoDone(id, done);
-      if (todo === null) throw new Error(`No todo with id ${id}`);
-      return todo;
-    },
-    todos_remove: async ({ id }) => ({ removed: await removeTodo(id) }),
+    routing_get: async ({ threadId }) => ({
+      routing: view(threadId, await readRouting(threadId)),
+    }),
   });
 
-  // The `bb typesafe-router` command: what agents (and you) use from a shell. Parsing
-  // argv is plugin-owned; `commands` is metadata BB renders into help and
-  // the generated plugin-commands skill without running plugin code.
-  const usage = [
-    "Usage:",
-    "  bb typesafe-router list [--json]",
-    "  bb typesafe-router add <title> [--json]",
-    "  bb typesafe-router done <todo-id> [--json]",
-    "  bb typesafe-router undo <todo-id> [--json]",
-    "  bb typesafe-router remove <todo-id> [--json]",
-  ].join("\n");
-  function formatTodo(todo: Todo): string {
-    return `[${todo.done ? "x" : " "}] ${todo.id}  ${todo.title}`;
-  }
-  bb.cli.register({
-    name: "typesafe-router",
-    summary: "Manage the Typesafe Router plugin's example todo list",
-    commands: [
-      { name: "list", summary: "List todos", usage: "bb typesafe-router list [--json]" },
-      {
-        name: "add",
-        summary: "Add a todo",
-        usage: "bb typesafe-router add <title> [--json]",
-      },
-      {
-        name: "done",
-        summary: "Mark a todo done",
-        usage: "bb typesafe-router done <todo-id> [--json]",
-      },
-      {
-        name: "undo",
-        summary: "Mark a todo not done",
-        usage: "bb typesafe-router undo <todo-id> [--json]",
-      },
-      {
-        name: "remove",
-        summary: "Remove a todo",
-        usage: "bb typesafe-router remove <todo-id> [--json]",
-      },
-    ],
-    async run(argv) {
-      const json = argv.includes("--json");
-      const [command, ...args] = argv.filter((arg) => arg !== "--json");
-      const reply = (value: unknown, text: string) => ({
-        exitCode: 0,
-        stdout: json ? JSON.stringify(value) : text,
-      });
-      const notFound = (missingId: string) => ({
-        exitCode: 1,
-        stderr: `No todo with id ${missingId}. Run "bb typesafe-router list" to see ids.`,
-      });
-      const todoId = args[0];
-      switch (command) {
-        case undefined:
-        case "help":
-        case "--help":
-          return { exitCode: 0, stdout: usage };
-        case "list": {
-          const todos = await listTodos();
-          return reply(
-            todos,
-            todos.length === 0 ? "No todos." : todos.map(formatTodo).join("\n"),
+  // ---- catalog -----------------------------------------------------------
+
+  const catalogCache = new Map<string, { at: number; catalog: CatalogHarness[] }>();
+
+  async function loadCatalog(hostId: string | null): Promise<CatalogHarness[]> {
+    const key = hostId ?? "__primary__";
+    const cached = catalogCache.get(key);
+    if (cached !== undefined && Date.now() - cached.at < CATALOG_TTL_MS) {
+      return cached.catalog;
+    }
+    const routing = hostId === null ? {} : { hostId };
+    const providers = await bb.sdk.providers.list({ ...routing });
+    // Excluded before the probe, not just before the choice: there is no point
+    // asking our own stub for its models.
+    const available = providers.filter(
+      (provider) => provider.available && isRoutableProviderId(provider.id),
+    );
+    const perProvider = await Promise.all(
+      available.map(async (provider) => {
+        try {
+          const result = await bb.sdk.providers.models({
+            ...routing,
+            providerId: provider.id,
+          });
+          return [provider.id, result.models as CatalogModel[]] as const;
+        } catch (cause) {
+          bb.log.warn(
+            `models for ${provider.id} failed: ${cause instanceof Error ? cause.message : String(cause)}`,
           );
+          return [provider.id, [] as CatalogModel[]] as const;
         }
-        case "add": {
-          const title = args.join(" ").trim();
-          if (title === "") break;
-          const todo = await addTodo(title);
-          return reply(todo, `Added ${formatTodo(todo)}`);
-        }
-        case "done":
-        case "undo": {
-          if (todoId === undefined || args.length !== 1) break;
-          const todo = await setTodoDone(todoId, command === "done");
-          if (todo === null) return notFound(todoId);
-          return reply(todo, formatTodo(todo));
-        }
-        case "remove": {
-          if (todoId === undefined || args.length !== 1) break;
-          if (!(await removeTodo(todoId))) return notFound(todoId);
-          return reply({ removed: true, id: todoId }, `Removed ${todoId}`);
-        }
+      }),
+    );
+    const catalog = buildCatalog(
+      available,
+      new Map(perProvider),
+      MAX_MODELS_PER_HARNESS,
+    );
+    catalogCache.set(key, { at: Date.now(), catalog });
+    return catalog;
+  }
+
+  // ---- the hook ----------------------------------------------------------
+
+  bb.experimental_hooks.on("message.dispatch", async (ctx) => {
+    let record: RoutingRecord | null = null;
+    try {
+      record = await readRouting(ctx.thread.id);
+    } catch (cause) {
+      // Fail OPEN: a router that cannot read its own state must not hold a
+      // user's message hostage.
+      bb.log.warn(
+        `routing state unreadable for ${ctx.thread.id}: ${cause instanceof Error ? cause.message : String(cause)}`,
+      );
+      return { action: "proceed" };
+    }
+
+    const current = await settings.get();
+    const decision = decideDispatch({
+      enabled: current.enabled,
+      hasApiKey: typeof current.typesafeApiKey === "string" && current.typesafeApiKey !== "",
+      pluginId: bb.pluginId,
+      requestedProviderId: ctx.requestedExecution.providerId,
+      attempt: ctx.attempt,
+      threadStatus: ctx.thread.status,
+      threadVisibility: ctx.thread.visibility,
+      origin: ctx.origin,
+      originPluginId: ctx.originPluginId,
+      startedOnBehalfOf: ctx.startedOnBehalfOf,
+      routing: record,
+    });
+
+    switch (decision.action) {
+      case "proceed":
+        return { action: "proceed" };
+      case "reject":
+        return { action: "reject", message: decision.message };
+      case "wait":
+        // A pass is recorded as running, but a plugin reload or a server
+        // restart drops both the in-memory pass and any pending confirmation
+        // card while the metadata survives. Without this, that row waits
+        // forever. Restarting is safe: a pass is idempotent for one thread.
+        startPass(ctx);
+        return { action: "wait", reason: decision.reason };
+      case "route":
+        startPass(ctx);
+        return { action: "wait", reason: decision.reason };
+    }
+  });
+
+  /**
+   * Begin a routing pass unless one is already running for this thread.
+   * Detached deliberately: the hook must answer now, and a pass ends by
+   * calling `recheck`, not by resolving back into the handler that started it.
+   */
+  function startPass(ctx: MessageDispatchHookContext): void {
+    if (inFlight.has(ctx.thread.id)) return;
+    inFlight.add(ctx.thread.id);
+    void runPass(ctx).finally(() => inFlight.delete(ctx.thread.id));
+  }
+
+  async function settle(
+    threadId: string,
+    phase: Extract<RoutingPhase, "failed" | "skipped">,
+    detail: string,
+  ): Promise<void> {
+    await writeRouting(threadId, {
+      phase,
+      providerId: null,
+      model: null,
+      replacementThreadId: null,
+      detail,
+    });
+    await bb.experimental_hooks.recheck("message.dispatch");
+  }
+
+  async function runPass(ctx: MessageDispatchHookContext): Promise<void> {
+    const threadId = ctx.thread.id;
+    try {
+      await writeRouting(threadId, {
+        phase: "selecting",
+        providerId: null,
+        model: null,
+        replacementThreadId: null,
+        detail: null,
+      });
+
+      const { typesafeApiKey } = await settings.get();
+      if (typeof typesafeApiKey !== "string" || typesafeApiKey === "") {
+        await settle(threadId, "skipped", "no TypeSafe API key");
+        return;
       }
-      return { exitCode: 1, stderr: usage };
-    },
-  });
 
-  // Cleanup on reload/disable/shutdown; hooks run LIFO. The sanctioned place
-  // to clear timers and close connections.
+      const catalog = await loadCatalog(ctx.host?.id ?? null);
+      const client = new TypeSafeClient({ apiKey: typesafeApiKey });
+      const result = await routeFirstMessage(client, {
+        messageText: ctx.input.text,
+        projectName: ctx.project.name ?? null,
+        catalog,
+        currentProviderId: ctx.requestedExecution.providerId,
+      });
+
+      bb.log.info(
+        `routed ${threadId} to ${result.harness.id}/${result.model.id} in ${result.elapsedMs}ms (${result.inputTokens} input tokens)`,
+      );
+      displayNames.set(threadId, {
+        provider: result.harness.displayName,
+        model: result.model.displayName,
+      });
+      await writeRouting(threadId, {
+        phase: "proposed",
+        providerId: result.harness.id,
+        model: result.model.id,
+        replacementThreadId: null,
+        detail: null,
+      });
+
+      const answer = await bb.ui.requestInput({
+        threadId,
+        rendererId: CONFIRM_RENDERER_ID,
+        title: "Confirm harness and model",
+        timeoutMs: CONFIRM_TIMEOUT_MS,
+        payload: {
+          providerId: result.harness.id,
+          providerName: result.harness.displayName,
+          model: result.model.id,
+          modelName: result.model.displayName,
+          modelDescription: result.model.description,
+          keepsHarness: result.harness.id === ctx.requestedExecution.providerId,
+          currentProviderId: ctx.requestedExecution.providerId,
+          harnessConfidence: result.harnessConfidence,
+          modelConfidence: result.modelConfidence,
+        },
+      });
+
+      if (answer.outcome !== "submitted") {
+        await settle(threadId, "skipped", `confirmation ${answer.outcome}`);
+        return;
+      }
+      const accepted =
+        typeof answer.value === "object" &&
+        answer.value !== null &&
+        !Array.isArray(answer.value) &&
+        (answer.value as Record<string, unknown>).accept === true;
+      if (!accepted) {
+        await settle(threadId, "skipped", "declined by the user");
+        return;
+      }
+
+      await apply(ctx, result.harness, result.model);
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      bb.log.error(`routing pass failed for ${threadId}: ${message}`);
+      await settle(threadId, "failed", message).catch(() => undefined);
+    }
+  }
+
+  /**
+   * Same harness: update the model on the thread and let the held message
+   * through. Different harness: BB cannot swap a thread's harness, so the
+   * message moves to a new thread that starts on the confirmed one, and this
+   * thread is rejected and archived.
+   */
+  async function apply(
+    ctx: MessageDispatchHookContext,
+    harness: CatalogHarness,
+    model: CatalogModel,
+  ): Promise<void> {
+    const threadId = ctx.thread.id;
+    // Unreachable while the catalog excludes the stub, and cheap insurance if
+    // that ever stops being true: a failed pass ends in a rejection the user can
+    // read, not a thread confirmed onto a harness that cannot run.
+    if (!isRoutableProviderId(harness.id)) {
+      throw new Error(`refusing to confirm ${threadId} onto ${harness.id}`);
+    }
+    if (harness.id === ctx.requestedExecution.providerId) {
+      await bb.sdk.threads.update({ threadId, model: model.id });
+      await writeRouting(threadId, {
+        phase: "confirmed",
+        providerId: harness.id,
+        model: model.id,
+        replacementThreadId: null,
+        detail: null,
+      });
+      await bb.experimental_hooks.recheck("message.dispatch");
+      return;
+    }
+
+    const replacement = await bb.sdk.threads.spawn({
+      projectId: ctx.thread.projectId,
+      environment:
+        ctx.environment === null
+          ? { type: "project-default" }
+          : { type: "reuse", environmentId: ctx.environment.id },
+      providerId: harness.id,
+      model: model.id,
+      input: [...ctx.input.blocks],
+      ...(ctx.thread.title === null ? {} : { title: ctx.thread.title }),
+      // Seeded as already-confirmed so the new thread's own first dispatch
+      // passes straight through this same hook.
+      pluginMetadata: {
+        routing: {
+          phase: "confirmed",
+          providerId: harness.id,
+          model: model.id,
+          replacementThreadId: null,
+          detail: `routed from ${threadId}`,
+          updatedAt: Date.now(),
+        },
+      },
+    });
+    displayNames.set(replacement.id, {
+      provider: harness.displayName,
+      model: model.displayName,
+    });
+
+    await writeRouting(threadId, {
+      phase: "redirected",
+      providerId: harness.id,
+      model: model.id,
+      replacementThreadId: replacement.id,
+      detail: null,
+    });
+    // Publish before rejecting so an open client can navigate away from the
+    // thread that is about to show a rejection.
+    bb.realtime.publish(ROUTING_CHANGED, {
+      threadId,
+      phase: "redirected",
+      replacementThreadId: replacement.id,
+    });
+    await bb.experimental_hooks.recheck("message.dispatch");
+    await bb.sdk.threads.archive({ threadId }).catch((cause: unknown) => {
+      bb.log.warn(
+        `could not archive placeholder ${threadId}: ${cause instanceof Error ? cause.message : String(cause)}`,
+      );
+    });
+  }
+
   bb.onDispose(() => {
-    bb.log.info("disposed");
+    displayNames.clear();
+    inFlight.clear();
+    catalogCache.clear();
   });
-
-  // Long-lived background work: starts after load, gets an AbortSignal on
-  // reload/disable/shutdown, and restarts with backoff if it crashes. Sleeps
-  // must wake on abort — a plain setTimeout sleeps through the stop window
-  // and the plugin reports "degraded (service did not stop)" on reload.
-  // bb.background.service("worker", {
-  //   async start(signal) {
-  //     while (!signal.aborted) {
-  //       await new Promise((resolve) => {
-  //         const timer = setTimeout(resolve, 60_000);
-  //         signal.addEventListener(
-  //           "abort",
-  //           () => { clearTimeout(timer); resolve(undefined); },
-  //           { once: true },
-  //         );
-  //       });
-  //     }
-  //   },
-  // });
 }
