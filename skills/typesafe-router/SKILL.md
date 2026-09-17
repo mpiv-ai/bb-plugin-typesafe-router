@@ -32,8 +32,10 @@ usual flow below is a proposal you can decline.
    the timeline — a held dispatch is visible only on that queued card above the
    composer and on the thread's sidebar row.
 2. Off the hook, the plugin reads this machine's live catalogs
-   (`bb provider list --machine <id>` is the same data) and curates each
-   harness to at most eight models.
+   (`bb provider list --machine <id>` is the same data), drops any harness the
+   settings exclude, and curates each survivor to at most
+   `maxModelsPerHarness` models (default eight). The catalogs are always read
+   live; settings only trim what Jev is offered.
 3. TypeSafe (Jev) answers two sequential Choice questions: first the harness,
    then a model from that harness's curated list only.
 4. The composer is replaced by a confirmation card. **Yep** locks it in;
@@ -66,11 +68,40 @@ one.
 
 ## Configuration
 
+The settings live on the plugin's page under **Settings → Tools → TypeSafe
+Router**, where a **Routing preferences** section lists this machine's harnesses
+as switches. The same values from a shell:
+
 ```
+bb plugin config typesafe-router                                 # show all
 bb plugin config typesafe-router set typesafeApiKey 'YOUR_KEY'   # secret
-bb plugin config typesafe-router set enabled false          # stop routing
-bb plugin reload typesafe-router
+bb plugin config typesafe-router set enabled false               # stop routing
+bb plugin config typesafe-router set maxModelsPerHarness 4       # 2–16, default 8
+bb plugin config typesafe-router set curationMode 'catalog_order'
+bb plugin config typesafe-router set excludeHarnesses 'acp-omp'
 ```
+
+| Setting | Default | Effect |
+| --- | --- | --- |
+| `typesafeApiKey` | *(unset)* | Secret. Without it nothing is routed. |
+| `enabled` | `true` | Off leaves every thread where it was created. |
+| `maxModelsPerHarness` | `8` | Models per harness Jev chooses between (2–16). |
+| `curationMode` | `weighted` | `weighted` ranks by built-in name weights; `catalog_order` keeps the provider's own order. Both cap, dedupe families, and keep the provider default. |
+| `includeHarnesses` | `""` | Allow-list, one provider id per line; empty means all. |
+| `excludeHarnesses` | `""` | Applied after the include list, one id per line. |
+
+`#` starts a comment in either list, and an id that matches nothing on the
+machine is skipped rather than failing. The picker row is excluded
+unconditionally and cannot be named back in.
+
+These are re-read on every routing pass, so **a change applies to the next first
+message without a reload**. Reload only matters for the `needs-configuration`
+banner, which is computed once at plugin load.
+
+If the include/exclude combination leaves **no routable harness**, the plugin
+fails closed: it does not call TypeSafe, and a first message on the picker row is
+rejected with "every available harness is switched off in this plugin's
+settings" rather than hanging on the wait card.
 
 Without a key the plugin reports `needs-configuration` and blocks nothing on
 threads that already have a real harness.

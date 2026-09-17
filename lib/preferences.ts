@@ -1,0 +1,154 @@
+// The plugin's settings, turned into the few decisions routing actually makes.
+//
+// Everything here is pure. server.ts reads the stored values on each routing
+// pass and hands them to these functions, so changing a preference takes effect
+// on the next message rather than on the next plugin reload.
+//
+// Stored values are not trusted: `bb plugin config set` and the settings page
+// both write through the same validators, but a value that predates a schema
+// change still has to parse into something routable. Unknown provider ids are
+// kept rather than rejected — a machine that does not have `acp-omp` today may
+// have it tomorrow, and an id that matches nothing simply filters nothing.
+
+import {
+  CURATION_MODES,
+  MAX_MODELS_PER_HARNESS,
+  type CurationMode,
+  type HarnessFilter,
+} from "./catalog.js";
+
+export { CURATION_MODES, type CurationMode, type HarnessFilter };
+
+/** Labels for the two curation modes, shared by the settings page and the docs. */
+export const CURATION_MODE_LABELS: Record<CurationMode, string> = {
+  weighted: "Built-in name weights",
+  catalog_order: "Keep the provider's order",
+};
+
+export const CURATION_MODE_HINTS: Record<CurationMode, string> = {
+  weighted:
+    "Rank an oversized harness by this plugin's name weights, so the models it recognises survive the cut.",
+  catalog_order:
+    "Boost nothing. Cut an oversized harness at the provider's own order, keeping its default.",
+};
+
+/**
+ * Bounds for `maxModelsPerHarness`. Below two there is no choice left to make;
+ * above sixteen a Choice call gets expensive without getting better.
+ */
+export const MIN_MODELS_PER_HARNESS = 2;
+export const MAX_MODELS_CEILING = 16;
+
+/** The settings values routing reads, as `settings.get()` returns them. */
+export interface StoredPreferences {
+  enabled: boolean;
+  maxModelsPerHarness: number;
+  curationMode: string;
+  includeHarnesses: string;
+  excludeHarnesses: string;
+}
+
+export interface RouterPreferences {
+  enabled: boolean;
+  maxModelsPerHarness: number;
+  curationMode: CurationMode;
+  filter: HarnessFilter;
+}
+
+/**
+ * Parse one of the harness list settings: one provider id per line, `#` starts
+ * a comment, blank lines are ignored, and ids are lowercased so a hand-typed
+ * `Codex` still matches the `codex` provider.
+ */
+export function parseHarnessIds(raw: string | undefined | null): Set<string> {
+  const ids = new Set<string>();
+  if (typeof raw !== "string") return ids;
+  for (const line of raw.split(/\r?\n/)) {
+    const id = (line.split("#")[0] ?? "").trim().toLowerCase();
+    if (id !== "") ids.add(id);
+  }
+  return ids;
+}
+
+/** The inverse of parseHarnessIds, for writing a list back from the toggles. */
+export function formatHarnessIds(ids: Iterable<string>): string {
+  return [...ids].sort().join("\n");
+}
+
+export function parseCurationMode(raw: unknown): CurationMode {
+  return CURATION_MODES.includes(raw as CurationMode) ? (raw as CurationMode) : "weighted";
+}
+
+/** Hold the cap inside its bounds, whatever a stored or typed value says. */
+export function clampMaxModels(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return MAX_MODELS_PER_HARNESS;
+  return Math.min(MAX_MODELS_CEILING, Math.max(MIN_MODELS_PER_HARNESS, Math.trunc(value)));
+}
+
+export function readPreferences(values: StoredPreferences): RouterPreferences {
+  return {
+    enabled: values.enabled,
+    maxModelsPerHarness: clampMaxModels(values.maxModelsPerHarness),
+    curationMode: parseCurationMode(values.curationMode),
+    filter: {
+      include: parseHarnessIds(values.includeHarnesses),
+      exclude: parseHarnessIds(values.excludeHarnesses),
+    },
+  };
+}
+
+/**
+ * The settings text that turns one harness toggle on or off.
+ *
+ * Toggling writes the exclude list only. The include list stays whatever the
+ * user typed, because exclude is applied after it: turning off the sole entry
+ * of a narrowing include list correctly leaves nothing routable, and turning it
+ * back on restores exactly what was there before. The one exception is turning
+ * a harness ON that a narrowing include list does not name — without adding it
+ * there, the toggle would appear to do nothing.
+ */
+export function withHarnessAllowed(
+  filter: HarnessFilter,
+  providerId: string,
+  allowed: boolean,
+): { includeHarnesses: string; excludeHarnesses: string } {
+  const id = providerId.trim().toLowerCase();
+  const include = new Set(filter.include);
+  const exclude = new Set(filter.exclude);
+  if (allowed) {
+    exclude.delete(id);
+    if (include.size > 0) include.add(id);
+  } else {
+    exclude.add(id);
+  }
+  return {
+    includeHarnesses: formatHarnessIds(include),
+    excludeHarnesses: formatHarnessIds(exclude),
+  };
+}
+
+/**
+ * Cache identity for a built catalog. The catalog is a function of the machine
+ * AND of these preferences, so a preference change has to miss the cache rather
+ * than serve the list the previous settings produced.
+ */
+export function preferenceSignature(preferences: RouterPreferences): string {
+  return [
+    preferences.maxModelsPerHarness,
+    preferences.curationMode,
+    formatHarnessIds(preferences.filter.include).replace(/\n/g, ","),
+    formatHarnessIds(preferences.filter.exclude).replace(/\n/g, ","),
+  ].join("|");
+}
+
+/**
+ * Why a routing pass found nothing to choose from. Told apart deliberately: a
+ * machine with no usable harness is a different problem from a machine whose
+ * harnesses are all switched off on the settings page, and the second one is
+ * fixable in ten seconds by the person reading the message.
+ */
+export function emptyCatalogDetail(routableBeforeFilter: number): string {
+  return routableBeforeFilter === 0
+    ? "no harness on this machine can run a turn"
+    : "every available harness is switched off in this plugin's settings";
+}

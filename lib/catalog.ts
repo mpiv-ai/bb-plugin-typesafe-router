@@ -11,6 +11,11 @@
 // It is in `providers.list` so the New Thread page can enable Send, but a
 // proposal that named it would route a thread to a harness that cannot run
 // turns, so TypeSafe never sees it as a choice.
+//
+// The rest of the filtering is the user's: the settings page turns harness
+// toggles into the include/exclude lists a `HarnessFilter` carries, and the
+// curation mode decides whether an oversized harness is trimmed by the
+// built-in name weights or simply cut at the provider's own order.
 
 import { isRoutableProviderId } from "./provider.js";
 
@@ -38,6 +43,47 @@ export interface CatalogProvider {
 }
 
 export const MAX_MODELS_PER_HARNESS = 8;
+
+/**
+ * How an oversized harness is trimmed. `weighted` applies PREFERENCE_RULES;
+ * `catalog_order` boosts nothing and keeps whatever order the provider
+ * published, which is what a user who trusts their provider's ranking wants.
+ * Both still cap, collapse families, and keep the provider's default.
+ */
+export const CURATION_MODES = ["weighted", "catalog_order"] as const;
+export type CurationMode = (typeof CURATION_MODES)[number];
+
+/**
+ * The user's harness allow-list, already parsed from the settings text.
+ * An empty `include` means "every available harness"; `exclude` is applied
+ * after it, so a harness named in both is excluded.
+ */
+export interface HarnessFilter {
+  include: ReadonlySet<string>;
+  exclude: ReadonlySet<string>;
+}
+
+/** A filter that narrows nothing — the default, and what tests start from. */
+export const ALLOW_ALL_HARNESSES: HarnessFilter = {
+  include: new Set<string>(),
+  exclude: new Set<string>(),
+};
+
+/**
+ * Whether a routing pass may offer this harness. The stub is refused here too,
+ * so no include list can ever talk the router onto a provider that cannot run
+ * a turn. Ids are compared case-insensitively because the exclude list is
+ * hand-typed.
+ */
+export function isHarnessAllowed(
+  providerId: string,
+  filter: HarnessFilter = ALLOW_ALL_HARNESSES,
+): boolean {
+  if (!isRoutableProviderId(providerId)) return false;
+  const id = providerId.toLowerCase();
+  if (filter.exclude.has(id)) return false;
+  return filter.include.size === 0 || filter.include.has(id);
+}
 
 /**
  * Preference weights applied only when a harness has more models than we can
@@ -77,7 +123,10 @@ export function modelFamilyKey(id: string): string {
   return key;
 }
 
-function preferenceScore(model: CatalogModel): number {
+function preferenceScore(model: CatalogModel, mode: CurationMode): number {
+  // In catalog_order every model scores the same, so the sort below collapses
+  // to "the provider's default first, then the provider's own order".
+  if (mode === "catalog_order") return 0;
   const haystack = `${model.id} ${model.displayName}`;
   let score = 0;
   for (const rule of PREFERENCE_RULES) {
@@ -96,6 +145,7 @@ function preferenceScore(model: CatalogModel): number {
 export function curateModels(
   models: readonly CatalogModel[],
   max: number = MAX_MODELS_PER_HARNESS,
+  mode: CurationMode = "weighted",
 ): CatalogModel[] {
   if (max <= 0) return [];
   const byFamily = new Map<string, { model: CatalogModel; index: number }>();
@@ -112,7 +162,7 @@ export function curateModels(
 
   const ranked = [...deduped].sort((a, b) => {
     if (a.model.isDefault !== b.model.isDefault) return a.model.isDefault ? -1 : 1;
-    const delta = preferenceScore(b.model) - preferenceScore(a.model);
+    const delta = preferenceScore(b.model, mode) - preferenceScore(a.model, mode);
     if (delta !== 0) return delta;
     return a.index - b.index;
   });
@@ -120,24 +170,36 @@ export function curateModels(
   return deduped.filter((entry) => kept.has(entry.index)).map((entry) => entry.model);
 }
 
+export interface CatalogOptions {
+  /** Models offered per harness. Defaults to MAX_MODELS_PER_HARNESS. */
+  max?: number;
+  mode?: CurationMode;
+  /** The user's include/exclude lists; defaults to allowing every harness. */
+  filter?: HarnessFilter;
+}
+
 /**
  * Build the harness list a routing pass may choose from. Unavailable providers,
- * providers whose catalog came back empty, and this plugin's own picker stub
- * are dropped: offering a harness with nothing to run on would produce a
- * proposal we cannot apply.
+ * providers whose catalog came back empty, providers the user filtered out, and
+ * this plugin's own picker stub are dropped: offering a harness with nothing to
+ * run on would produce a proposal we cannot apply.
+ *
+ * The filter is applied here rather than only at the call site so that no
+ * future caller can assemble a catalog that skips the user's preferences.
  */
 export function buildCatalog(
   providers: readonly CatalogProvider[],
   modelsByProvider: ReadonlyMap<string, readonly CatalogModel[]>,
-  max: number = MAX_MODELS_PER_HARNESS,
+  options: CatalogOptions = {},
 ): CatalogHarness[] {
+  const { max = MAX_MODELS_PER_HARNESS, mode = "weighted", filter } = options;
   const harnesses: CatalogHarness[] = [];
   for (const provider of providers) {
     if (!provider.available) continue;
-    // Not a caller's choice: a catalog containing the stub is a bug, however
-    // the list was assembled.
-    if (!isRoutableProviderId(provider.id)) continue;
-    const models = curateModels(modelsByProvider.get(provider.id) ?? [], max);
+    // The stub half of this is not a caller's choice: a catalog containing it
+    // is a bug, however the list was assembled.
+    if (!isHarnessAllowed(provider.id, filter)) continue;
+    const models = curateModels(modelsByProvider.get(provider.id) ?? [], max, mode);
     if (models.length === 0) continue;
     harnesses.push({ id: provider.id, displayName: provider.displayName, models });
   }

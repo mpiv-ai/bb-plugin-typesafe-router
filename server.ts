@@ -24,10 +24,24 @@ import { TypeSafeClient } from "@typesafe-ai/sdk";
 import { z } from "zod";
 import {
   buildCatalog,
+  CURATION_MODES,
+  isHarnessAllowed,
   MAX_MODELS_PER_HARNESS,
   type CatalogHarness,
   type CatalogModel,
 } from "./lib/catalog.js";
+import {
+  clampMaxModels,
+  emptyCatalogDetail,
+  MAX_MODELS_CEILING,
+  MIN_MODELS_PER_HARNESS,
+  parseCurationMode,
+  parseHarnessIds,
+  preferenceSignature,
+  readPreferences,
+  withHarnessAllowed,
+  type RouterPreferences,
+} from "./lib/preferences.js";
 import {
   decideDispatch,
   parseRoutingRecord,
@@ -68,26 +82,122 @@ const routingViewSchema = z.object({
   detail: z.string().nullable(),
 });
 
+/** One harness as the settings page lists it: live from `providers.list`. */
+const harnessRowSchema = z.object({
+  id: z.string(),
+  displayName: z.string(),
+  /** Installed and signed in on this machine. */
+  available: z.boolean(),
+  /** Whether the current include/exclude settings let routing offer it. */
+  allowed: z.boolean(),
+});
+
+/** Everything the settings section renders. Never carries the API key itself. */
+const settingsStateSchema = z.object({
+  enabled: z.boolean(),
+  maxModelsPerHarness: z.number(),
+  curationMode: z.string(),
+  includeHarnesses: z.string(),
+  excludeHarnesses: z.string(),
+  hasApiKey: z.boolean(),
+  harnesses: z.array(harnessRowSchema),
+  /** Null unless the live harness list could not be read. */
+  harnessError: z.string().nullable(),
+});
+
 export const rpcContract = defineRpcContract({
   routing_get: {
     input: z.object({ threadId: z.string().min(1) }).strict(),
     output: z.object({ routing: routingViewSchema.nullable() }),
   },
+  settings_state: {
+    input: z.null(),
+    output: settingsStateSchema,
+  },
+  settings_update: {
+    input: z
+      .object({
+        enabled: z.boolean().optional(),
+        maxModelsPerHarness: z.number().optional(),
+        curationMode: z.string().optional(),
+        includeHarnesses: z.string().optional(),
+        excludeHarnesses: z.string().optional(),
+      })
+      .strict(),
+    output: settingsStateSchema,
+  },
+  settings_set_harness: {
+    input: z.object({ providerId: z.string().min(1), allowed: z.boolean() }).strict(),
+    output: settingsStateSchema,
+  },
 });
 
 export type RoutingView = z.infer<typeof routingViewSchema>;
+export type SettingsState = z.infer<typeof settingsStateSchema>;
+export type HarnessRow = z.infer<typeof harnessRowSchema>;
 
 export default async function plugin(bb: BbPluginApi) {
+  // Declared, not just read: every field here renders on the plugin's own page
+  // under Settings, and is editable with `bb plugin config typesafe-router`.
+  // The settings section in app.tsx is a friendlier front end over these same
+  // values — both write through `settings.experimental_set`, so the page and
+  // the CLI are one source of truth.
   const settings = bb.settings.define({
     typesafeApiKey: {
       type: "string",
       label: "TypeSafe API key",
+      description: "Used for the two Choice calls that pick a harness and model.",
       secret: true,
     },
     enabled: {
       type: "boolean",
       label: "Route first messages",
+      description:
+        "Off leaves every thread on the harness it was created with. Takes effect on the next message.",
       default: true,
+    },
+    maxModelsPerHarness: {
+      type: "number",
+      label: "Models offered per harness",
+      description: `How many models from each harness TypeSafe may choose between (${MIN_MODELS_PER_HARNESS}–${MAX_MODELS_CEILING}). Lower is cheaper and blunter.`,
+      default: MAX_MODELS_PER_HARNESS,
+      experimental_schema: z
+        .number()
+        .int()
+        .min(MIN_MODELS_PER_HARNESS)
+        .max(MAX_MODELS_CEILING),
+    },
+    curationMode: {
+      type: "select",
+      label: "How to trim an oversized harness",
+      description:
+        "Both modes cap the list, collapse model families, and keep the provider's default.",
+      options: [...CURATION_MODES],
+      default: "weighted",
+      // Typed as a plain string validator so the descriptor's
+      // StandardSchemaV1<string, string> contract is satisfied exactly.
+      experimental_schema: z
+        .string()
+        .refine(
+          (value) => (CURATION_MODES as readonly string[]).includes(value),
+          `Expected one of: ${CURATION_MODES.join(", ")}`,
+        ),
+    },
+    includeHarnesses: {
+      type: "string",
+      label: "Only these harnesses",
+      description:
+        "One provider id per line (codex, acp-omp). Empty means every available harness. `#` starts a comment.",
+      experimental_multiline: true,
+      default: "",
+    },
+    excludeHarnesses: {
+      type: "string",
+      label: "Never these harnesses",
+      description:
+        "One provider id per line, applied after the include list. `#` starts a comment.",
+      experimental_multiline: true,
+      default: "",
     },
   });
 
@@ -169,31 +279,124 @@ export default async function plugin(bb: BbPluginApi) {
     };
   }
 
+  // ---- settings page -----------------------------------------------------
+
+  /**
+   * The harnesses this machine actually has, each marked with whether the
+   * current settings let routing offer it. Live every time: a harness installed
+   * or signed in since the page opened should appear on the next read.
+   */
+  async function readSettingsState(): Promise<SettingsState> {
+    const current = await settings.get();
+    const preferences = readPreferences(current);
+    let harnesses: HarnessRow[] = [];
+    let harnessError: string | null = null;
+    try {
+      const providers = await bb.sdk.providers.list({});
+      harnesses = providers
+        // The stub is never a routing choice, so it is never a row to toggle.
+        .filter((provider) => isRoutableProviderId(provider.id))
+        .map((provider) => ({
+          id: provider.id,
+          displayName: provider.displayName,
+          available: provider.available,
+          allowed: isHarnessAllowed(provider.id, preferences.filter),
+        }));
+    } catch (cause) {
+      // A settings page that cannot list harnesses still has to render the
+      // behaviour controls and the typed escape hatch.
+      harnessError = cause instanceof Error ? cause.message : String(cause);
+      bb.log.warn(`could not list harnesses for the settings page: ${harnessError}`);
+    }
+    return {
+      enabled: current.enabled,
+      maxModelsPerHarness: clampMaxModels(current.maxModelsPerHarness),
+      curationMode: preferences.curationMode,
+      includeHarnesses: current.includeHarnesses,
+      excludeHarnesses: current.excludeHarnesses,
+      // The key itself never leaves the server; the page only needs to know
+      // whether routing can run at all.
+      hasApiKey: typeof current.typesafeApiKey === "string" && current.typesafeApiKey !== "",
+      harnesses,
+      harnessError,
+    };
+  }
+
   bb.rpc.register(rpcContract, {
     routing_get: async ({ threadId }) => ({
       routing: view(threadId, await readRouting(threadId)),
     }),
+    settings_state: () => readSettingsState(),
+    settings_update: async (patch) => {
+      const next: Parameters<typeof settings.experimental_set>[0] = {};
+      if (patch.enabled !== undefined) next.enabled = patch.enabled;
+      if (patch.maxModelsPerHarness !== undefined) {
+        next.maxModelsPerHarness = clampMaxModels(patch.maxModelsPerHarness);
+      }
+      if (patch.curationMode !== undefined) {
+        next.curationMode = parseCurationMode(patch.curationMode);
+      }
+      if (patch.includeHarnesses !== undefined) {
+        next.includeHarnesses = patch.includeHarnesses;
+      }
+      if (patch.excludeHarnesses !== undefined) {
+        next.excludeHarnesses = patch.excludeHarnesses;
+      }
+      await settings.experimental_set(next);
+      return readSettingsState();
+    },
+    settings_set_harness: async ({ providerId, allowed }) => {
+      const current = await settings.get();
+      const lists = withHarnessAllowed(
+        {
+          include: parseHarnessIds(current.includeHarnesses),
+          exclude: parseHarnessIds(current.excludeHarnesses),
+        },
+        providerId,
+        allowed,
+      );
+      await settings.experimental_set(lists);
+      return readSettingsState();
+    },
   });
 
   // ---- catalog -----------------------------------------------------------
 
-  const catalogCache = new Map<string, { at: number; catalog: CatalogHarness[] }>();
+  interface LoadedCatalog {
+    catalog: CatalogHarness[];
+    /** Available, non-stub harnesses before the user's filter narrowed them. */
+    routableBeforeFilter: number;
+  }
 
-  async function loadCatalog(hostId: string | null): Promise<CatalogHarness[]> {
-    const key = hostId ?? "__primary__";
+  const catalogCache = new Map<string, { at: number; loaded: LoadedCatalog }>();
+
+  /**
+   * The live provider/model catalogs, curated for this machine and trimmed to
+   * what the settings allow. Cached briefly and keyed by preferences as well as
+   * host, so editing the settings page invalidates the list it produced rather
+   * than serving it for another minute.
+   */
+  async function loadCatalog(
+    hostId: string | null,
+    preferences: RouterPreferences,
+  ): Promise<LoadedCatalog> {
+    const key = `${hostId ?? "__primary__"}|${preferenceSignature(preferences)}`;
     const cached = catalogCache.get(key);
     if (cached !== undefined && Date.now() - cached.at < CATALOG_TTL_MS) {
-      return cached.catalog;
+      return cached.loaded;
     }
     const routing = hostId === null ? {} : { hostId };
     const providers = await bb.sdk.providers.list({ ...routing });
     // Excluded before the probe, not just before the choice: there is no point
-    // asking our own stub for its models.
-    const available = providers.filter(
+    // asking our own stub — or a harness the user switched off — for its models.
+    const routable = providers.filter(
       (provider) => provider.available && isRoutableProviderId(provider.id),
     );
+    const allowed = routable.filter((provider) =>
+      isHarnessAllowed(provider.id, preferences.filter),
+    );
     const perProvider = await Promise.all(
-      available.map(async (provider) => {
+      allowed.map(async (provider) => {
         try {
           const result = await bb.sdk.providers.models({
             ...routing,
@@ -208,13 +411,22 @@ export default async function plugin(bb: BbPluginApi) {
         }
       }),
     );
-    const catalog = buildCatalog(
-      available,
-      new Map(perProvider),
-      MAX_MODELS_PER_HARNESS,
-    );
-    catalogCache.set(key, { at: Date.now(), catalog });
-    return catalog;
+    const loaded: LoadedCatalog = {
+      catalog: buildCatalog(allowed, new Map(perProvider), {
+        max: preferences.maxModelsPerHarness,
+        mode: preferences.curationMode,
+        filter: preferences.filter,
+      }),
+      routableBeforeFilter: routable.length,
+    };
+    // Keys multiply with preference edits, so expired entries are swept rather
+    // than left to accumulate for the life of the plugin load.
+    const now = Date.now();
+    for (const [staleKey, entry] of catalogCache) {
+      if (now - entry.at >= CATALOG_TTL_MS) catalogCache.delete(staleKey);
+    }
+    catalogCache.set(key, { at: now, loaded });
+    return loaded;
   }
 
   // ---- the hook ----------------------------------------------------------
@@ -302,13 +514,27 @@ export default async function plugin(bb: BbPluginApi) {
         detail: null,
       });
 
-      const { typesafeApiKey } = await settings.get();
+      // Read here, not at load: a preference changed a moment ago applies to
+      // this pass.
+      const current = await settings.get();
+      const { typesafeApiKey } = current;
       if (typeof typesafeApiKey !== "string" || typesafeApiKey === "") {
         await settle(threadId, "skipped", "no TypeSafe API key");
         return;
       }
 
-      const catalog = await loadCatalog(ctx.host?.id ?? null);
+      const { catalog, routableBeforeFilter } = await loadCatalog(
+        ctx.host?.id ?? null,
+        readPreferences(current),
+      );
+      // Fail closed before spending a Choice call. On the picker stub this
+      // becomes a rejection the user can read and act on; on a real harness the
+      // thread simply proceeds where it already was.
+      if (catalog.length === 0) {
+        await settle(threadId, "skipped", emptyCatalogDetail(routableBeforeFilter));
+        return;
+      }
+
       const client = new TypeSafeClient({ apiKey: typesafeApiKey });
       const result = await routeFirstMessage(client, {
         messageText: ctx.input.text,
