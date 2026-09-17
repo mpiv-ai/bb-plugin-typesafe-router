@@ -57,6 +57,8 @@
   },
   "scripts": {
     "test": "vitest run",
-    "build": "bb plugin build"
+    "build": "bb plugin build",
+    "replay": "node scripts/replay-routing-eval.mjs",
+    "replay:dry": "node scripts/replay-routing-eval.mjs --dry-run"
   }
 }
