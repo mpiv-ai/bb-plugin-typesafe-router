@@ -1,141 +1,66 @@
 # bb-plugin-typesafe-router
 
-A BB plugin that keeps a todo list. It shows every surface a plugin can own:
+Picks the harness and model for a BB thread's **first message**, using
+TypeSafe (Jev), and asks you to confirm before it locks them in.
 
-- `server.ts` — the backend: a todo store in `bb.storage.kv`, RPC methods
-  for the page, a `bb typesafe-router` CLI command, a setting, and a realtime signal
-  that keeps every open page current.
-- `app.tsx` — the frontend: an **Example todos** page in the left sidebar
-  (`app.slots.navPanel`) built from the vendored components.
-- `skills/example-todos/SKILL.md` — a skill that tells agents how to keep the list
-  with `bb typesafe-router`. BB imports it into agent threads automatically.
-- `PLUGIN_OVERVIEW.md` — the store listing text: a longer version of
-  `bb.description` that the plugin detail page shows under it. See
-  [Store listing](#store-listing).
+A BB thread's harness is fixed once the thread runs. The first message is
+therefore the only moment the choice is still open — so that is the only
+moment this plugin acts. Everything else dispatches untouched.
 
-Try it: install the plugin, open **Example todos** in the sidebar, then run
-`bb typesafe-router add "Ship it"` in a terminal. The page updates at once.
+## How it works
 
-## UI components
+`message.dispatch` is a checkpoint with a 10-second fail-closed budget, so the
+hook itself only reads cheap state and answers. It holds the first message with
+`{ action: "wait" }` and runs the expensive part off the hook:
 
-`components/ui/` is vendored source you own (the shadcn model): edit the
-files freely — they never update out from under you. Add more from the BB
-component registry (the full shadcn set, version-matched to your BB install
-via the pinned ref in `components.json`):
+1. Read this machine's live catalogs (`bb.sdk.providers.list` /
+   `.models` for the thread's host — catalogs differ per machine, and one
+   harness can offer 800+ models). Curate each harness to at most 8 models.
+2. Two sequential TypeSafe Choice calls: **which harness**, then **which model
+   inside that harness**. Hierarchical, because those are two different
+   judgements and a flat 40-label question is neither.
+3. Replace the composer with a confirmation card. **Yep** applies it.
+4. Same harness → set the model on this thread and release the held message.
+   Different harness → spawn a new thread on it carrying the same input, then
+   reject and archive this one.
 
-```
-npx shadcn add @bb/select @bb/table
-```
+Then `experimental_hooks.recheck("message.dispatch")` asks core to re-decide
+the held row.
 
-Run `npm install` once before `bb plugin build` — the vendored components'
-npm deps bundle into your dist. React, and BB-shimmed packages like the
-radix portal primitives and `sonner` (`import { toast } from "sonner"`
-reaches BB's own toaster), are provided by the BB app at runtime and never
-bundled. Every shimmed package is declared in `devDependencies` at the
-host's version so those imports typecheck; keep them there (never in
-`dependencies`, which would bundle a second copy), and `bb plugin types`
-repins them alongside the SDK. Ship `dist/` (npm tarball or committed for
-git installs) so people installing your plugin never need npm.
+## Layout
 
-## Manifest
+- `lib/catalog.ts` — curation. Pure; no network.
+- `lib/policy.ts` — what to intercept and what to answer on a re-attempt. Pure.
+- `lib/router.ts` — the two Choice calls, against an injectable client.
+- `server.ts` — wiring: settings, the hook, the routing pass, RPC.
+- `app.tsx` — the composer banner and the confirmation card.
+- `skills/typesafe-router/SKILL.md` — what agents are told about routing.
 
-`package.json` is the plugin manifest. Notable fields:
-
-- `bb.server` — backend entry (required).
-- `bb.app` — frontend entry. Delete it, `app.tsx`, `components/`,
-  `hooks/`, and `lib/` for a headless plugin.
-- `bb.skills` — skill roots; omitted here, so BB reads `skills/`. Each
-  directory with a `SKILL.md` is one skill, named after the directory.
-- `bb.name` and `bb.description` — required human-facing identity.
-- `bb.branding` — required; declare `icon` as a BB icon name or a
-  plugin-relative compact SVG, or declare `logo.light` (with optional
-  `logo.dark`). Logo assets must be relative `.svg`, `.png`, or
-  `.webp` files.
-- `engines.bb` — supported bb app version range.
-- `engines.bbPluginSdk` — the lowest plugin SDK you need (scaffold:
-  `>=0.4.87`). BB reads this as a floor, not a ceiling: a later
-  SDK in the same major still loads your plugin.
-- `dependencies` — every package your source imports that BB does not provide.
-  `bb plugin build` inlines them into `dist/`, and git installs resolve this
-  list alone, so a build-required package here rather than in
-  `devDependencies` is what keeps your plugin installable. `devDependencies`
-  is for types and tooling only (BB shims React, the portal primitives, and
-  `@get-bb/plugin-sdk` at runtime — never bundle them).
-
-Run `bb plugin build` before publishing git/npm installs. It writes
-`dist/server.js` + `server.meta.json` and `app.js` / `app.css` /
-`app.meta.json`. Each `*.meta.json` stamps SDK major/version,
-`artifactFormatVersion`, `pluginId`, `pluginVersion`, and
-`builtWith` so managed installs can verify the artifacts.
-
-## Store listing
-
-Two texts describe the plugin in the store. `bb.description` in package.json
-is the one-sentence hook on every browse card and the lead paragraph on the
-detail page; keep it under about 140 characters. `PLUGIN_OVERVIEW.md` is the
-same claim at length, shown in an Overview section under that paragraph.
-Rewrite the scaffold's copy for your plugin, and update it whenever
-`bb.description` changes, so the two never disagree.
-
-The submission to the public BB Community marketplace requires the file. Keep
-it under 4000 characters (aim for 700 to 1800) and use headings, paragraphs,
-emphasis, code, blockquotes, lists, thematic breaks, and absolute https links
-only — raw HTML, images, tables, footnotes, and task lists are rejected. Do
-not open with a `#` title or repeat `bb.description` verbatim; the page
-shows both directly above.
-
-## Install
-
-From this directory (`bb plugin new` already ran the install; a fresh clone
-needs it):
+## Setup
 
 ```
-npm install
-bb plugin install .
-```
-
-After editing sources, reload:
-
-```
+bb plugin install . --yes
+bb plugin config typesafe-router set typesafeApiKey <key>
 bb plugin reload typesafe-router
 ```
 
-Or let `bb plugin dev` rebuild and reload on every save.
+Without a key the plugin reports `needs-configuration` and blocks nothing.
+`bb plugin config typesafe-router set enabled false` turns routing off.
 
-## Configure
-
-```
-bb plugin config typesafe-router
-bb plugin config typesafe-router set showDone false
-bb plugin reload typesafe-router
-```
-
-## Types & API reference
-
-The plugin API ships as the npm package `@get-bb/plugin-sdk`, pinned to an
-exact version in `devDependencies` (`0.4.87` — the SDK of the BB
-that scaffolded this plugin). After `npm install`, the full surface is on disk
-at:
+## Tests
 
 ```
-node_modules/@get-bb/plugin-sdk/bundled-types/bb-plugin-sdk.d.ts      # backend
-node_modules/@get-bb/plugin-sdk/bundled-types/bb-plugin-sdk-app.d.ts  # frontend
+npm test          # catalog curation, dispatch policy, and the routing pass
+npx tsc --noEmit
+bb plugin build
 ```
 
-Your editor and `tsc` resolve `@get-bb/plugin-sdk` there through ordinary node
-resolution — no path mapping. These are readable declarations: open them for an
-exact signature.
+No test reaches the network: the catalog is passed in, and the routing pass
+takes a `SystemOneCaller` a fake satisfies.
 
-The SDK surface grows with every BB release, so the pin has to track the BB you
-actually run:
+## Privacy
 
-```
-bb plugin types          # sync this plugin's SDK surface to the running BB
-bb plugin types --check  # CI: fail when it does not match
-```
-
-Ask BB to write plugins for you: the `bb-plugin-authoring` skill documents
-the whole surface with examples.
-
-Confused by the API, or need something the types don't explain? Clone the BB
-repo and read the source: <https://github.com/get-bb/bb>.
+Only the first message's text is sent to TypeSafe, truncated to 4000
+characters, along with the project name and the names and descriptions of the
+harnesses and models on offer (BB catalog strings, not your content). Not the
+repository, the timeline, or any later message.

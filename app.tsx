@@ -1,198 +1,198 @@
-// bb-plugin-typesafe-router — a BB plugin frontend entry.
+// TypeSafe router — the two surfaces routing needs while it holds a message.
 //
-// Compiled by `bb plugin build` into dist/app.js + dist/app.css. React and
-// @get-bb/plugin-sdk/app are provided by the BB app at load time (never bundled),
-// so this file must be loaded by BB, not imported directly.
-//
-// The components under components/ui/ are YOURS: vendored source (shadcn
-// model), edit freely. Add more from the BB registry with
-// `npx shadcn add @bb/<name>` (see components.json) — dropdowns, tables,
-// the full shadcn set, version-matched to this BB install. Run
-// `npm install` once before `bb plugin build`.
-import { useCallback, useEffect, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
-import { definePluginApp, useRealtime, useRpc } from "@get-bb/plugin-sdk/app";
-import type { rpcContract, Todo } from "./server";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+// A held dispatch is invisible in the timeline by design (a `wait` writes no
+// thread event), so the only places a person can learn what is happening are
+// the composer banner and, when a proposal is ready, the pending-interaction
+// card that replaces the composer.
 
-/** The todo list, kept current by the server's "todos-changed" signal. */
-function useTodos() {
-  const rpc = useRpc<typeof rpcContract>();
-  const [todos, setTodos] = useState<Todo[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const report = useCallback((cause: unknown) => {
-    setError(cause instanceof Error ? cause.message : String(cause));
-  }, []);
-  const refetch = useCallback(() => {
-    rpc.call("todos_list").then((result) => {
-      setTodos(result.todos);
-      setError(null);
-    }, report);
-  }, [rpc, report]);
-  useEffect(() => {
-    refetch();
-  }, [refetch]);
-  // server.ts publishes after every write — from this page, another window,
-  // or `bb typesafe-router add` run by an agent — so the list never goes stale.
-  useRealtime("todos-changed", refetch);
-  return { rpc, todos, error, report, refetch };
+import { useCallback, useEffect, useState } from "react";
+import {
+  definePluginApp,
+  useBbNavigate,
+  useComposerView,
+  useRealtime,
+  useRpc,
+} from "@get-bb/plugin-sdk/app";
+import type { PluginPendingInteractionProps } from "@get-bb/plugin-sdk/app";
+import type { rpcContract, RoutingView } from "./server";
+import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
+
+/** Must match CONFIRM_RENDERER_ID in server.ts. */
+const CONFIRM_RENDERER_ID = "typesafe-confirm";
+const ROUTING_CHANGED = "routing-changed";
+
+function asString(value: unknown, fallback: string): string {
+  return typeof value === "string" && value !== "" ? value : fallback;
 }
 
-function TodoRow({
-  todo,
-  onToggle,
-  onRemove,
+/** The routing record for the thread this composer belongs to, kept current. */
+function useRouting(threadId: string | null) {
+  const rpc = useRpc<typeof rpcContract>();
+  const [routing, setRouting] = useState<RoutingView | null>(null);
+  const refetch = useCallback(() => {
+    if (threadId === null) {
+      setRouting(null);
+      return;
+    }
+    rpc.call("routing_get", { threadId }).then(
+      (result) => setRouting(result.routing),
+      () => setRouting(null),
+    );
+  }, [rpc, threadId]);
+  useEffect(refetch, [refetch]);
+  // The channel carries every thread's routing changes; only ours matters here.
+  useRealtime(
+    ROUTING_CHANGED,
+    useCallback(
+      (payload: unknown) => {
+        const signalled =
+          typeof payload === "object" && payload !== null
+            ? (payload as Record<string, unknown>).threadId
+            : null;
+        if (signalled === threadId) refetch();
+      },
+      [refetch, threadId],
+    ),
+  );
+  return routing;
+}
+
+/**
+ * The banner above the composer. It carries the one fact the confirm card
+ * cannot: that the harness is now locked for this thread, and that the model
+ * is not.
+ */
+function RoutingBanner() {
+  const view = useComposerView();
+  const navigate = useBbNavigate();
+  const threadId = view.scope.kind === "thread" ? view.scope.threadId : null;
+  const routing = useRouting(threadId);
+
+  // Once a proposal turns into a different harness the thread is finished;
+  // move the reader to the thread that actually carries their message.
+  useEffect(() => {
+    if (routing?.phase === "redirected" && routing.replacementThreadId !== null) {
+      navigate.toThread(routing.replacementThreadId);
+    }
+  }, [navigate, routing?.phase, routing?.replacementThreadId]);
+
+  if (routing === null) return null;
+
+  if (routing.phase === "selecting") {
+    return (
+      <Line icon="Spinner" spin>
+        TypeSafe is selecting the right harness and model…
+      </Line>
+    );
+  }
+  if (routing.phase === "proposed") {
+    return (
+      <Line icon="Workflow">
+        TypeSafe proposed{" "}
+        <strong className="font-medium text-foreground">
+          {asString(routing.providerName, "a harness")}
+        </strong>{" "}
+        · {asString(routing.modelName, "a model")}. Confirm below to start.
+      </Line>
+    );
+  }
+  if (routing.phase === "confirmed") {
+    return (
+      <Line icon="Lock">
+        Harness locked to{" "}
+        <strong className="font-medium text-foreground">
+          {asString(routing.providerName, "the selected harness")}
+        </strong>{" "}
+        for this thread. The model ({asString(routing.modelName, "selected")}) can
+        still be changed.
+      </Line>
+    );
+  }
+  if (routing.phase === "redirected") {
+    return <Line icon="ArrowRight">Moving this message to its new thread…</Line>;
+  }
+  return null;
+}
+
+function Line({
+  icon,
+  spin = false,
+  children,
 }: {
-  todo: Todo;
-  onToggle: (done: boolean) => void;
-  onRemove: () => void;
+  icon: string;
+  spin?: boolean;
+  children: React.ReactNode;
 }) {
   return (
-    <li className="flex items-center gap-3 py-2.5 text-sm">
-      <Checkbox
-        checked={todo.done}
-        onCheckedChange={(checked) => onToggle(checked === true)}
-        aria-label={`Mark "${todo.title}" ${todo.done ? "not done" : "done"}`}
-      />
-      <span
-        className={cn(
-          "min-w-0 flex-1 truncate",
-          todo.done && "text-muted-foreground line-through",
-        )}
-      >
-        {todo.title}
-      </span>
-      <span className="hidden font-mono text-xs text-muted-foreground sm:inline">
-        {todo.id}
-      </span>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-7 text-muted-foreground hover:text-foreground"
-        aria-label={`Remove "${todo.title}"`}
-        onClick={onRemove}
-      >
-        <Icon name="Trash2" className="size-4" />
-      </Button>
-    </li>
-  );
-}
-
-/** The dashed box BB's own list pages use for loading and empty states. */
-function EmptyState({ children }: { children: ReactNode }) {
-  return (
-    <div
-      role="status"
-      className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground"
-    >
-      {children}
+    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <Icon name={icon} className={spin ? "size-3.5 animate-spin" : "size-3.5"} />
+      <span className="min-w-0 flex-1">{children}</span>
     </div>
   );
 }
 
-// Tailwind classes compile against the host theme's live CSS variables —
-// derive colors from the theme tokens, never hardcoded grays. The frame
-// (scrolling page, centered column) matches BB's own nav-panel pages.
-function TodosPage() {
-  const { rpc, todos, error, report, refetch } = useTodos();
-  const [title, setTitle] = useState("");
+/**
+ * Replaces the composer while a proposal is pending. Submitting `accept: true`
+ * locks the harness; anything else lets the thread start on the harness BB
+ * had already chosen.
+ */
+function ConfirmCard({ interaction, submit, cancel }: PluginPendingInteractionProps) {
   const [pending, setPending] = useState(false);
-  const add = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const next = title.trim();
-    if (next === "" || pending) return;
+  const payload =
+    typeof interaction.payload === "object" &&
+    interaction.payload !== null &&
+    !Array.isArray(interaction.payload)
+      ? (interaction.payload as Record<string, unknown>)
+      : {};
+  const providerName = asString(payload.providerName, "Unknown harness");
+  const modelName = asString(payload.modelName, "default model");
+  const keepsHarness = payload.keepsHarness === true;
+
+  const answer = (accept: boolean) => {
+    if (pending) return;
     setPending(true);
-    try {
-      await rpc.call("todos_add", { title: next });
-      setTitle("");
-      refetch();
-    } catch (cause) {
-      report(cause);
-    } finally {
-      setPending(false);
-    }
+    const done = accept ? submit({ accept: true }) : cancel();
+    done.catch(() => undefined).finally(() => setPending(false));
   };
-  const doneCount = todos?.filter((todo) => todo.done).length ?? 0;
+
   return (
-    <div className="h-full min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto box-border w-full max-w-3xl px-4 pb-4 pt-3 md:px-5 md:pt-4">
-        <p className="text-sm text-muted-foreground">
-          Agents keep this list with <code>bb typesafe-router</code>; the skill in{" "}
-          <code>skills/example-todos</code> tells them how.
-        </p>
-        <form onSubmit={add} className="mt-4 flex items-center gap-2">
-          <Input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="What needs doing?"
-            aria-label="New todo"
-          />
-          <Button type="submit" disabled={pending || title.trim() === ""}>
-            <Icon name="Plus" className="size-4" />
-            Add
-          </Button>
-        </form>
-        {error === null ? null : (
-          <p role="alert" className="mt-3 text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <div className="mt-4">
-          {todos === null ? (
-            <EmptyState>Loading todos…</EmptyState>
-          ) : todos.length === 0 ? (
-            <EmptyState>
-              Nothing to do. Add one above, or run{" "}
-              <code>bb typesafe-router add "Ship it"</code>.
-            </EmptyState>
-          ) : (
-            <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-4">
-              {todos.map((todo) => (
-                <TodoRow
-                  key={todo.id}
-                  todo={todo}
-                  onToggle={(done) => {
-                    rpc
-                      .call("todos_set_done", { id: todo.id, done })
-                      .then(refetch, report);
-                  }}
-                  onRemove={() => {
-                    rpc
-                      .call("todos_remove", { id: todo.id })
-                      .then(refetch, report);
-                  }}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
-        {todos !== null && todos.length > 0 ? (
-          <p className="mt-2 text-xs text-muted-foreground">
-            {doneCount} of {todos.length} done
-          </p>
-        ) : null}
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+        <Icon name="Workflow" className="size-4" />
+        TypeSafe picked a harness and model
+      </div>
+      <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+        <dt className="text-muted-foreground">Harness</dt>
+        <dd className="text-foreground">{providerName}</dd>
+        <dt className="text-muted-foreground">Model</dt>
+        <dd className="text-foreground">{modelName}</dd>
+      </dl>
+      <p className="mt-3 text-xs text-muted-foreground">
+        {keepsHarness
+          ? "The harness is locked for this thread once it starts. The model can still be changed later."
+          : "This is a different harness than the thread was created with, so your message moves to a new thread. The harness is locked there; the model can still be changed."}
+      </p>
+      <div className="mt-4 flex items-center gap-2">
+        <Button onClick={() => answer(true)} disabled={pending}>
+          Yep
+        </Button>
+        <Button variant="ghost" onClick={() => answer(false)} disabled={pending}>
+          Keep what I had
+        </Button>
       </div>
     </div>
   );
 }
 
-// The default export must be definePluginApp(...); BB interprets it after
-// loading the bundle. navPanel adds a page to the left sidebar; register
-// other UI under app.slots and composer actions, plus-menu rows, banners, or
-// rich-text rules with app.composer.customize(...) (see the bb guide's
-// plugins chapter).
 export default definePluginApp((app) => {
-  app.slots.navPanel({
-    id: "example-todos",
-    title: "Example todos",
-    icon: "ListTodo",
-    // Routed at /plugins/typesafe-router/example-todos; the component receives the
-    // remainder as `subPath` for deep links within the page.
-    path: "example-todos",
-    component: TodosPage,
+  app.composer.customize({
+    id: "typesafe-routing-banner",
+    scopes: ["thread"],
+    banners: [{ id: "routing-status", chrome: "bare", component: RoutingBanner }],
+  });
+  app.slots.pendingInteraction({
+    id: CONFIRM_RENDERER_ID,
+    component: ConfirmCard,
   });
 });
