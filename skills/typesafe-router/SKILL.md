@@ -67,7 +67,7 @@ one.
 ## Configuration
 
 ```
-bb plugin config typesafe-router set typesafeApiKey <key>   # secret
+bb plugin config typesafe-router set typesafeApiKey 'YOUR_KEY'   # secret
 bb plugin config typesafe-router set enabled false          # stop routing
 bb plugin reload typesafe-router
 ```
