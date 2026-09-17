@@ -3,10 +3,12 @@ import {
   buildCatalog,
   curateModels,
   defaultModelFor,
+  findHarness,
   modelFamilyKey,
   type CatalogModel,
   type CatalogProvider,
 } from "./catalog.js";
+import { STUB_PROVIDER_ID } from "./provider.js";
 
 function model(id: string, overrides: Partial<CatalogModel> = {}): CatalogModel {
   return {
@@ -148,5 +150,41 @@ describe("defaultModelFor", () => {
       defaultModelFor({ id: "x", displayName: "X", models: [model("a")] })?.id,
     ).toBe("a");
     expect(defaultModelFor({ id: "x", displayName: "X", models: [] })).toBeNull();
+  });
+});
+
+describe("buildCatalog and the picker stub", () => {
+  // The stub is a real entry in providers.list — that is the whole point of it.
+  // It must never reach TypeSafe, or a proposal could name a harness that
+  // cannot run a turn.
+  const withStub: CatalogProvider[] = [
+    { id: "codex", displayName: "Codex", available: true },
+    { id: STUB_PROVIDER_ID, displayName: "TypeSafe Router", available: true },
+    { id: "claude-code", displayName: "Claude Code", available: true },
+  ];
+  const models = new Map([
+    ["codex", [model("gpt-6-astra", { isDefault: true })]],
+    [STUB_PROVIDER_ID, [model("route", { isDefault: true })]],
+    ["claude-code", [model("claude-opus-5", { isDefault: true })]],
+  ]);
+
+  it("omits the stub even when it is available and has a model", () => {
+    const catalog = buildCatalog(withStub, models, 8);
+    expect(catalog.map((harness) => harness.id)).toEqual(["codex", "claude-code"]);
+  });
+
+  it("leaves nothing for TypeSafe to choose when the stub is the only provider", () => {
+    const catalog = buildCatalog(
+      [{ id: STUB_PROVIDER_ID, displayName: "TypeSafe Router", available: true }],
+      models,
+      8,
+    );
+    expect(catalog).toEqual([]);
+  });
+
+  it("cannot be looked up by id once the catalog is built", () => {
+    const catalog = buildCatalog(withStub, models, 8);
+    expect(findHarness(catalog, STUB_PROVIDER_ID)).toBeNull();
+    expect(findHarness(catalog, "codex")?.id).toBe("codex");
   });
 });

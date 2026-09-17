@@ -5,6 +5,7 @@ import {
   isFirstMessage,
   parseRoutingRecord,
   SELECTING_REASON,
+  STUB_PROVIDER_ID,
   type PolicyInput,
   type RoutingRecord,
 } from "./policy.js";
@@ -14,6 +15,7 @@ function input(overrides: Partial<PolicyInput> = {}): PolicyInput {
     enabled: true,
     hasApiKey: true,
     pluginId: "typesafe-router",
+    requestedProviderId: "codex",
     attempt: "start-turn",
     threadStatus: "pending",
     threadVisibility: "visible",
@@ -178,5 +180,88 @@ describe("parseRoutingRecord", () => {
       detail: null,
       updatedAt: 0,
     });
+  });
+});
+
+describe("decideDispatch on the picker stub", () => {
+  // Everything below is a case that proceeds on a real harness. On the stub it
+  // must not, because the stub's bridge refuses turn/start: proceeding would
+  // trade a readable message for a dead thread.
+  const onStub = (overrides: Partial<PolicyInput> = {}): PolicyInput =>
+    input({ requestedProviderId: STUB_PROVIDER_ID, ...overrides });
+
+  it("rejects when the user declined the proposal", () => {
+    const decision = decideDispatch(
+      onStub({ routing: routing({ phase: "skipped", detail: "declined by the user" }) }),
+    );
+    expect(decision.action).toBe("reject");
+    expect(decision.action === "reject" && decision.message).toContain(
+      "declined by the user",
+    );
+    expect(decision.action === "reject" && decision.message).toMatch(/Codex or Claude/);
+  });
+
+  it("rejects when there is no TypeSafe API key", () => {
+    const decision = decideDispatch(onStub({ hasApiKey: false }));
+    expect(decision.action).toBe("reject");
+    expect(decision.action === "reject" && decision.message).toContain(
+      "no TypeSafe API key",
+    );
+  });
+
+  it("rejects when routing failed outright", () => {
+    const decision = decideDispatch(
+      onStub({ routing: routing({ phase: "failed", detail: "TypeSafe timed out" }) }),
+    );
+    expect(decision.action).toBe("reject");
+    expect(decision.action === "reject" && decision.message).toContain(
+      "TypeSafe timed out",
+    );
+  });
+
+  it("rejects a confirmation that somehow landed back on the stub", () => {
+    const decision = decideDispatch(
+      onStub({
+        routing: routing({ phase: "confirmed", providerId: STUB_PROVIDER_ID }),
+      }),
+    );
+    expect(decision.action).toBe("reject");
+  });
+
+  it("rejects every other pass-through reason too", () => {
+    const passThrough: Partial<PolicyInput>[] = [
+      { enabled: false },
+      { attempt: "join-turn" },
+      { threadVisibility: "hidden" },
+      { startedOnBehalfOf: { initiator: "agent", senderThreadId: "thr_1" } },
+      { origin: "plugin", originPluginId: "some-other-plugin" },
+      { threadStatus: "active" },
+    ];
+    for (const overrides of passThrough) {
+      expect(decideDispatch(input(overrides)).action).toBe("proceed");
+      expect(decideDispatch(onStub(overrides)).action).toBe("reject");
+    }
+  });
+
+  it("still holds the message while the pass is running", () => {
+    expect(decideDispatch(onStub()).action).toBe("route");
+    expect(decideDispatch(onStub({ routing: routing({ phase: "selecting" }) }))).toEqual({
+      action: "wait",
+      reason: SELECTING_REASON,
+    });
+    expect(decideDispatch(onStub({ routing: routing({ phase: "proposed" }) }))).toEqual({
+      action: "wait",
+      reason: CONFIRMING_REASON,
+    });
+  });
+
+  it("leaves a redirected thread's own rejection wording alone", () => {
+    const decision = decideDispatch(
+      onStub({ routing: routing({ phase: "redirected", replacementThreadId: "thr_2" }) }),
+    );
+    expect(decision.action).toBe("reject");
+    expect(decision.action === "reject" && decision.message).toContain(
+      "moved this message to a new thread",
+    );
   });
 });

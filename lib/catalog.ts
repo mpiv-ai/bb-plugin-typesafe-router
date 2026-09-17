@@ -6,6 +6,13 @@
 // and expensive, so every harness is curated down to at most
 // MAX_MODELS_PER_HARNESS entries before TypeSafe ever sees it. Nothing here
 // touches the network — the caller passes the lists it already fetched.
+//
+// One provider is filtered out unconditionally: this plugin's own picker stub.
+// It is in `providers.list` so the New Thread page can enable Send, but a
+// proposal that named it would route a thread to a harness that cannot run
+// turns, so TypeSafe never sees it as a choice.
+
+import { isRoutableProviderId } from "./provider.js";
 
 /** One model as `bb.sdk.providers.models` reports it, narrowed to what routing needs. */
 export interface CatalogModel {
@@ -114,9 +121,10 @@ export function curateModels(
 }
 
 /**
- * Build the harness list a routing pass may choose from. Unavailable providers
- * and providers whose catalog came back empty are dropped: offering a harness
- * with nothing to run on would produce a proposal we cannot apply.
+ * Build the harness list a routing pass may choose from. Unavailable providers,
+ * providers whose catalog came back empty, and this plugin's own picker stub
+ * are dropped: offering a harness with nothing to run on would produce a
+ * proposal we cannot apply.
  */
 export function buildCatalog(
   providers: readonly CatalogProvider[],
@@ -126,6 +134,9 @@ export function buildCatalog(
   const harnesses: CatalogHarness[] = [];
   for (const provider of providers) {
     if (!provider.available) continue;
+    // Not a caller's choice: a catalog containing the stub is a bug, however
+    // the list was assembled.
+    if (!isRoutableProviderId(provider.id)) continue;
     const models = curateModels(modelsByProvider.get(provider.id) ?? [], max);
     if (models.length === 0) continue;
     harnesses.push({ id: provider.id, displayName: provider.displayName, models });

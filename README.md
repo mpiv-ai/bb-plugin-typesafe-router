@@ -7,6 +7,21 @@ A BB thread's harness is fixed once the thread runs. The first message is
 therefore the only moment the choice is still open — so that is the only
 moment this plugin acts. Everything else dispatches untouched.
 
+## Starting a routed thread
+
+On the New Thread page, pick **TypeSafe Router** and its one model,
+**Choose harness and model**. Type the message and press **Send** once. The
+composer is replaced by a wait card while TypeSafe decides, then by a
+confirmation card; press **Yep** and the thread continues on the harness and
+model it chose.
+
+TypeSafe Router is a picker row, not a harness. BB will not enable Send until
+a provider and a model are chosen, and routing cannot run before Send — so the
+plugin registers one provider whose only job is to be selectable. It never runs
+a turn: its bridge refuses `turn/start`, it is excluded from the catalog
+TypeSafe chooses from, and any dispatch that would start a turn on it is
+rejected with a message telling you to pick a real harness instead.
+
 ## How it works
 
 `message.dispatch` is a checkpoint with a 10-second fail-closed budget, so the
@@ -22,13 +37,19 @@ hook itself only reads cheap state and answers. It holds the first message with
 3. Replace the composer with a confirmation card. **Yep** applies it.
 4. Same harness → set the model on this thread and release the held message.
    Different harness → spawn a new thread on it carrying the same input, then
-   reject and archive this one.
+   reject and archive this one. A thread started on the picker row always takes
+   this second path, since the picker row is never a candidate.
 
 Then `experimental_hooks.recheck("message.dispatch")` asks core to re-decide
 the held row.
 
 ## Layout
 
+- `lib/provider.ts` — the picker row's id, model, and the one predicate that
+  keeps it out of everything else. Pure.
+- `lib/provider-bridge.ts` — the minimum bridge: handshake, one model, and a
+  refusal for `turn/start`.
+- `host.ts` — the `bb.host` artifact, which exists only to carry that bridge.
 - `lib/catalog.ts` — curation. Pure; no network.
 - `lib/policy.ts` — what to intercept and what to answer on a re-attempt. Pure.
 - `lib/router.ts` — the two Choice calls, against an injectable client.
@@ -44,19 +65,26 @@ bb plugin config typesafe-router set typesafeApiKey <key>
 bb plugin reload typesafe-router
 ```
 
-Without a key the plugin reports `needs-configuration` and blocks nothing.
-`bb plugin config typesafe-router set enabled false` turns routing off.
+Without a key the plugin reports `needs-configuration` and blocks nothing on a
+thread that already has a real harness. A thread started on **TypeSafe Router**
+has nowhere to go, so its message is rejected with an explanation rather than
+started on a provider that cannot run it.
+
+`bb plugin config typesafe-router set enabled false` turns routing off. Removing
+the plugin, or reverting this change, removes the picker row with it; threads
+that were routed keep running, because they run on a real harness.
 
 ## Tests
 
 ```
-npm test          # catalog curation, dispatch policy, and the routing pass
+npm test          # catalog curation, dispatch policy, the routing pass, the bridge
 npx tsc --noEmit
 bb plugin build
 ```
 
-No test reaches the network: the catalog is passed in, and the routing pass
-takes a `SystemOneCaller` a fake satisfies.
+No test reaches the network: the catalog is passed in, the routing pass takes a
+`SystemOneCaller` a fake satisfies, and the bridge is driven in-process through
+the SDK's own JSON-RPC harness.
 
 ## Privacy
 

@@ -4,6 +4,18 @@
 // The one rule behind all of it — a BB thread's harness is fixed once the
 // thread runs, so the only moment routing can change it is the first message.
 // Everything else proceeds untouched.
+//
+// With one exception that overrides every "proceed": the thread may be sitting
+// on this plugin's own picker stub, which exists so Send can be enabled and
+// cannot run a turn. Releasing a message onto it would start a turn that dies
+// in the bridge, so any proceed on the stub becomes a reject that says what to
+// do instead. Fail closed, and only on the stub — every real harness is
+// untouched.
+
+import { STUB_CANNOT_RUN, STUB_PROVIDER_ID, isRoutableProviderId } from "./provider.js";
+
+// Re-exported so a caller reasoning about dispatch has one import, not two.
+export { STUB_PROVIDER_ID };
 
 export const SELECTING_REASON =
   "TypeSafe is selecting the right harness and model.";
@@ -35,6 +47,8 @@ export interface PolicyInput {
   hasApiKey: boolean;
   /** This plugin's own id, to tell our spawns from another plugin's. */
   pluginId: string;
+  /** The provider this dispatch would actually run on, from `requestedExecution`. */
+  requestedProviderId: string;
   attempt: "join-turn" | "start-turn";
   threadStatus: "active" | "error" | "idle" | "pending" | "starting" | "stopping";
   threadVisibility: "hidden" | "visible";
@@ -64,7 +78,31 @@ export function isFirstMessage(
   return threadStatus === "pending";
 }
 
+/**
+ * The message a user sees when routing did not produce a runnable harness.
+ * Carries the underlying cause so "declined" and "no API key" are told apart
+ * without reading a log.
+ */
+export function stubRejectionMessage(why: string): string {
+  return [
+    `${STUB_CANNOT_RUN} This thread never got one (${why}).`,
+    "Pick Codex or Claude in the composer and send again, or set the TypeSafe API key and start a new thread.",
+  ].join(" ");
+}
+
+/**
+ * The rule the whole plugin rests on: a turn never starts on the stub. Applied
+ * over the decision rather than inside it, so no future branch can forget it.
+ */
 export function decideDispatch(input: PolicyInput): PolicyDecision {
+  const decision = decide(input);
+  if (decision.action === "proceed" && !isRoutableProviderId(input.requestedProviderId)) {
+    return { action: "reject", message: stubRejectionMessage(decision.why) };
+  }
+  return decision;
+}
+
+function decide(input: PolicyInput): PolicyDecision {
   const { routing } = input;
 
   // Terminal states first, so a settled thread is never re-examined against

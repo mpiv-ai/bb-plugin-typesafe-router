@@ -22,9 +22,12 @@
   },
   "include": [
     "server.ts",
+    "host.ts",
     "app.tsx",
     "components",
     "lib",
-    "hooks"
+    "hooks",
+    "vitest.config.ts",
+    "vitest.setup.ts"
   ]
 }

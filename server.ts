@@ -9,6 +9,11 @@
 // A BB thread's harness is fixed once it runs. So a proposal that keeps the
 // harness only updates the model in place, while a proposal that changes it
 // has to start a new thread carrying the same input and retire this one.
+//
+// The plugin also registers a picker stub (`lib/provider.ts`) so a new thread
+// can be sent without choosing a harness first. The stub is excluded from the
+// catalog TypeSafe chooses from, so in practice every proposal changes the
+// harness and every routed thread is a spawn.
 
 import {
   defineRpcContract,
@@ -29,6 +34,12 @@ import {
   type RoutingPhase,
   type RoutingRecord,
 } from "./lib/policy.js";
+import {
+  isRoutableProviderId,
+  STUB_MODEL,
+  STUB_PROVIDER_DISPLAY_NAME,
+  STUB_PROVIDER_ID,
+} from "./lib/provider.js";
 import { routeFirstMessage } from "./lib/router.js";
 
 /** Realtime channel the composer banner listens on. */
@@ -78,6 +89,38 @@ export default async function plugin(bb: BbPluginApi) {
       label: "Route first messages",
       default: true,
     },
+  });
+
+  // The picker row. Registered unconditionally — without it the New Thread page
+  // has no selectable harness for a user who wants TypeSafe to decide, and Send
+  // stays disabled. It runs nothing; see lib/provider-bridge.ts.
+  bb.providers.register({
+    id: STUB_PROVIDER_ID,
+    displayName: STUB_PROVIDER_DISPLAY_NAME,
+    icon: "Workflow",
+    experimental_visibility: "always",
+    // Nothing host-local to probe, install, or meter.
+    maintenance: { health: false, usage: false, installation: false },
+    strings: {
+      signInHint:
+        "Nothing to sign in to. TypeSafe Router only picks the harness; that harness handles its own sign-in.",
+      expiredHint:
+        "Nothing to renew. TypeSafe Router only picks the harness; that harness handles its own sign-in.",
+      installUrl: "https://github.com/mpiv-ai/bb-plugin-typesafe-router",
+    },
+    capabilities: {
+      supportsServiceTier: false,
+      supportsNativeUserQuestion: false,
+      fork: "none",
+      supportsManualCompaction: false,
+      supportsThreadArchive: false,
+      supportsThreadRename: false,
+      permissionModes: ["full"],
+      reasoningLevels: ["medium"],
+    },
+    composerActions: [],
+    // One model, always the default, so picking the provider is the whole choice.
+    models: { fallback: [STUB_MODEL], scope: "host" },
   });
 
   const initial = await settings.get();
@@ -144,7 +187,11 @@ export default async function plugin(bb: BbPluginApi) {
     }
     const routing = hostId === null ? {} : { hostId };
     const providers = await bb.sdk.providers.list({ ...routing });
-    const available = providers.filter((provider) => provider.available);
+    // Excluded before the probe, not just before the choice: there is no point
+    // asking our own stub for its models.
+    const available = providers.filter(
+      (provider) => provider.available && isRoutableProviderId(provider.id),
+    );
     const perProvider = await Promise.all(
       available.map(async (provider) => {
         try {
@@ -190,6 +237,7 @@ export default async function plugin(bb: BbPluginApi) {
       enabled: current.enabled,
       hasApiKey: typeof current.typesafeApiKey === "string" && current.typesafeApiKey !== "",
       pluginId: bb.pluginId,
+      requestedProviderId: ctx.requestedExecution.providerId,
       attempt: ctx.attempt,
       threadStatus: ctx.thread.status,
       threadVisibility: ctx.thread.visibility,
@@ -336,6 +384,12 @@ export default async function plugin(bb: BbPluginApi) {
     model: CatalogModel,
   ): Promise<void> {
     const threadId = ctx.thread.id;
+    // Unreachable while the catalog excludes the stub, and cheap insurance if
+    // that ever stops being true: a failed pass ends in a rejection the user can
+    // read, not a thread confirmed onto a harness that cannot run.
+    if (!isRoutableProviderId(harness.id)) {
+      throw new Error(`refusing to confirm ${threadId} onto ${harness.id}`);
+    }
     if (harness.id === ctx.requestedExecution.providerId) {
       await bb.sdk.threads.update({ threadId, model: model.id });
       await writeRouting(threadId, {
