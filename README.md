@@ -186,6 +186,12 @@ harness instead.
   section on the plugin's page.
 - `skills/typesafe-router/SKILL.md` — what agents are told about routing.
 
+## Docs
+
+[docs/](docs/README.md) explains the plugin from the inside: the architecture,
+the dispatch hook and routing state machine, the three TypeSafe calls, how
+execution settings are carried, configuration and UI, and development.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the local development loop, and
