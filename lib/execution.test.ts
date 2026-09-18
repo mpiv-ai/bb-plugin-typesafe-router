@@ -8,6 +8,9 @@ import {
 
 const codexLevels = ["low", "medium", "high", "xhigh"] as const;
 
+/** What every carry says about the harness and model, whatever else it carries. */
+const CHOSEN = { providerId: "explicit", model: "explicit" } as const;
+
 function requested(patch: Partial<RequestedExecution> = {}): RequestedExecution {
   return { reasoningLevel: null, serviceTier: null, permissionMode: null, ...patch };
 }
@@ -47,7 +50,7 @@ describe("carryExecution", () => {
       {},
     );
     expect(carried.reasoningLevel).toBe("high");
-    expect(carried.executionInputSources).toEqual({ reasoningLevel: "explicit" });
+    expect(carried.executionInputSources).toEqual({ ...CHOSEN, reasoningLevel: "explicit" });
   });
 
   it("clamps an explicit effort the model cannot reach and keeps it explicit", () => {
@@ -69,7 +72,7 @@ describe("carryExecution", () => {
       {},
     );
     expect(carried.reasoningLevel).toBe("medium");
-    expect(carried.executionInputSources).toEqual({});
+    expect(carried.executionInputSources).toEqual(CHOSEN);
   });
 
   it("drops effort when the catalog did not say what the model supports", () => {
@@ -80,7 +83,7 @@ describe("carryExecution", () => {
       {},
     );
     expect(carried.reasoningLevel).toBeUndefined();
-    expect(carried.executionInputSources).toEqual({});
+    expect(carried.executionInputSources).toEqual(CHOSEN);
   });
 
   it("carries fast mode only onto a harness that offers it", () => {
@@ -138,6 +141,14 @@ describe("carryExecution", () => {
         permissionModes: ["auto"],
         serviceTiers: ["default", "fast"],
       }),
-    ).toEqual({ executionInputSources: {} });
+    ).toEqual({ executionInputSources: CHOSEN });
+  });
+
+  it("always marks the routed harness and model as explicit, so core keeps them", () => {
+    // Without a source core re-derives provider and model from the project's
+    // stored defaults — the picker row, for a thread that started there.
+    const carried = carryExecution(requested(), sources(), {}, {});
+    expect(carried.executionInputSources.providerId).toBe("explicit");
+    expect(carried.executionInputSources.model).toBe("explicit");
   });
 });
