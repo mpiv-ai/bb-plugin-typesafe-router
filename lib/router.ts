@@ -23,7 +23,7 @@ import {
   type CatalogHarness,
   type CatalogModel,
 } from "./catalog.js";
-import type { ReasoningLevel } from "./execution.js";
+import { nearestReasoningLevel, type ReasoningLevel } from "./execution.js";
 
 import { classifyTask, type TaskAxis } from "./task-axis.js";
 import { axisScore, capabilityProse, familyCard, harnessCard } from "./knowledge.js";
@@ -212,7 +212,13 @@ export async function routeFirstMessage(
   let reasoningLevel: ReasoningLevel | null = null;
   let effortConfidence: number | null = null;
   if (request.reasoningLevelIsExplicit) {
-    reasoningLevel = request.requestedReasoningLevel;
+    // Rounded here as well as at spawn, so the card shows the level the
+    // thread will actually get rather than one this model cannot run.
+    const requested = request.requestedReasoningLevel;
+    reasoningLevel =
+      requested === null
+        ? null
+        : (nearestReasoningLevel(requested, model.reasoningLevels ?? []) ?? requested);
   } else {
     const levels = model.reasoningLevels ?? [];
     if (levels.length < 2) {

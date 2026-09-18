@@ -282,6 +282,20 @@ describe("routeFirstMessage effort", () => {
     expect(result.effortConfidence).toBeNull();
   });
 
+  it("rounds an explicit effort the model cannot reach, still without a call", async () => {
+    const client = fakeClient(["codex", "gpt-6-astra"]);
+    const result = await routeFirstMessage(client, {
+      messageText: "hi",
+      projectName: null,
+      catalog: effortCatalog,
+      currentProviderId: "codex",
+      requestedReasoningLevel: "max",
+      reasoningLevelIsExplicit: true,
+    });
+    expect(client.states).toHaveLength(2);
+    expect(result.reasoningLevel).toBe("high");
+  });
+
   it("skips the call when the model's ladder has only one rung", async () => {
     const client = fakeClient(["codex", "gpt-6-astra"]);
     const result = await routeFirstMessage(client, {
