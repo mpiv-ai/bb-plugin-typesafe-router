@@ -26,6 +26,7 @@
     "app.tsx",
     "components",
     "lib",
+    "datasets",
     "hooks",
     "vitest.config.ts",
     "vitest.setup.ts"
