@@ -56,7 +56,8 @@ thread starts, the harness is locked; the model can still be changed normally.
 
 Open **Settings → Tools → TypeSafe Router**. The automatic form contains only
 `typesafeApiKey` (secret). The custom section contains one Route first messages
-switch and the live harness switches. Routing is enabled by default.
+switch and the live harness switches. Routing is enabled by default. A **How
+routing works** section under the switches is the short user guide.
 
 Preferences are stored in `bb.storage.kv` and apply on the next first message.
 The former `enabled`, `includeHarnesses`, `excludeHarnesses`,

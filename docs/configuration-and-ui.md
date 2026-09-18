@@ -90,9 +90,9 @@ One channel, `routing-changed`. Every write to a routing record publishes
 subscribes with `useRealtime` and refetches only when the signalled thread is
 its own.
 
-## The three surfaces
+## The four surfaces
 
-All three live in `app.tsx` and are registered in `definePluginApp`.
+All four are registered in `definePluginApp` in `app.tsx`.
 
 ### The composer banner
 
@@ -150,6 +150,17 @@ rendered on the plugin's settings page beside the automatic form.
 live harness, disabled while a write is in flight, with a warning when the
 allowed count reaches zero. Every control writes through RPC and re-renders
 from the returned state.
+
+### The settings guide
+
+`app.slots.settingsSection({ id: "routing-guide", title: "How routing works", ... })`,
+registered after the preferences so it sits under the switches it explains.
+`components/settings-guide.tsx` is a Markdown string rendered with BB's own
+`Markdown` component — the short user guide: how to start a routed thread,
+what the card shows, what follows the message, what is never routed, what
+each setting does, the common error messages, and privacy — with links to
+the README and these pages. Keep it in step with the README's first-use and
+troubleshooting sections.
 
 ## The skill
 
