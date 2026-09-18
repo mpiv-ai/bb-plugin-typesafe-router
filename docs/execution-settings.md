@@ -86,9 +86,11 @@ showed and what the user confirmed. It still goes through the same rounding,
 so a card cannot pick a rung the model lacks (the server also validates the
 card's answer against the ladder before it gets this far).
 
-When the user chose an effort explicitly before Send, the router skips its
-effort call and rounds the user's level to the model's ladder before the card,
-so the card's selector shows the level the thread will actually get.
+The effort shown on the New Thread page is not used to skip the router's
+effort call: BB reports it as `explicit` whether the user touched it or not
+(see [The routing pass](routing-pass.md)). It still matters to `carryExecution`
+when no effort was routed — a model with an unknown ladder — where the
+picker's value is carried as a value and its source passed through.
 
 ## Provenance
 

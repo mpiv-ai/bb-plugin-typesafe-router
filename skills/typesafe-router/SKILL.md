@@ -37,10 +37,10 @@ usual flow below is a proposal you can decline.
    eight models ranked for the local task axis. The catalogs are always read
    live; settings only trim what Jev is offered.
 3. TypeSafe (Jev) answers two or three sequential Choice questions: first the
-   harness, then a model from that harness's curated list, then — only when
-   that model offers more than one reasoning effort and the user did not
-   already choose one on the New Thread page — an effort from that model's own
-   ladder.
+   harness, then a model from that harness's curated list, then — when that
+   model offers more than one reasoning effort — an effort from that model's
+   own ladder. The effort shown on the New Thread page is not consulted; the
+   confirmation card is where a person overrides the proposal.
 4. The composer is replaced by a confirmation card showing the proposed
    harness, model, and effort; effort is editable there when the model offers
    a choice. **Yep** locks it in; anything else lets the thread start on the

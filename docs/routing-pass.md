@@ -127,12 +127,17 @@ the pass as `failed`.
 
 ### Call 3 — how much effort
 
-Made only when **both** hold: the user did not explicitly choose an effort on
-the New Thread page (`executionSources.reasoningLevel !== "explicit"`), and the
-chosen model's ladder has at least two rungs. An explicit choice wins outright
-— it is rounded to the model's ladder (see [Execution settings](execution-settings.md))
-but never re-decided. A one-rung ladder is that rung; an unknown ladder is no
-effort at all, and the spawn lets core default it.
+Made whenever the chosen model's ladder has at least two rungs. A one-rung
+ladder is that rung; an unknown ladder is no effort at all, and the spawn lets
+core default it.
+
+The effort shown on the New Thread page is deliberately **not** consulted. BB
+reports whatever the picker shows as an explicit choice, whether the user
+touched it or a remembered value was sitting there — verified live: an
+untouched picker arrived as `low`, source `explicit`. So provenance cannot
+tell a deliberate pick from a leftover, and a rule that honoured it would
+silently disable effort routing for every thread started from the New Thread
+page. The confirmation card is where a person overrides the proposal.
 
 Labels are the model's supported efforts, lowest to highest. Each criterion:
 `ladder_position` ("2 of 4"), `relative_cost` (five buckets from position, so

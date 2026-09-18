@@ -58,7 +58,7 @@ describe("knowledge shortlist", () => {
       const name = calls.length === 1 ? "harness" : "model";
       return { usage: { input_tokens: 1 }, answers: { [name]: { choice: name === "harness" ? "pi" : "claude-fable-5-1", confidence: 1 } } } as any;
     } };
-    const result = await routeFirstMessage(client, { messageText: "Draft a prose essay", projectName: null, currentProviderId: null, catalog, requestedReasoningLevel: null, reasoningLevelIsExplicit: false });
+    const result = await routeFirstMessage(client, { messageText: "Draft a prose essay", projectName: null, currentProviderId: null, catalog });
     expect(calls).toHaveLength(2);
     expect(result.harness.models).toHaveLength(8);
     expect(result.harness.models[0]!.id).toBe("claude-fable-5-1");

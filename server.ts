@@ -494,15 +494,13 @@ export default async function plugin(bb: BbPluginApi) {
         projectName: ctx.project.name ?? null,
         catalog,
         currentProviderId: ctx.requestedExecution.providerId,
-        requestedReasoningLevel: ctx.requestedExecution.reasoningLevel,
-        reasoningLevelIsExplicit: ctx.executionSources.reasoningLevel === "explicit",
       });
 
       bb.log.info(
         `routed ${threadId} to ${result.harness.id}/${result.model.id}` +
           (result.reasoningLevel === null
             ? ""
-            : `@${result.reasoningLevel} (effort ${result.effortConfidence === null ? "kept" : "proposed"}; requested as ${ctx.executionSources.reasoningLevel ?? "default"})`) +
+            : `@${result.reasoningLevel} (effort ${result.effortConfidence === null ? "not routed" : "proposed"})`) +
           ` in ${result.elapsedMs}ms (${result.inputTokens} input tokens)`,
       );
       displayNames.set(threadId, {
