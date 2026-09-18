@@ -25,6 +25,7 @@ import type { rpcContract, RoutingView, SettingsState } from "./server";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { SettingsControls } from "./components/settings-controls";
+import { SettingsGuide } from "./components/settings-guide";
 
 /** Must match CONFIRM_RENDERER_ID in server.ts. */
 const CONFIRM_RENDERER_ID = "typesafe-confirm";
@@ -284,5 +285,12 @@ export default definePluginApp((app) => {
     description:
       "Choose which available harnesses TypeSafe may use.",
     component: SettingsPanel,
+  });
+  // The guide sits under the switches it explains.
+  app.slots.settingsSection({
+    id: "routing-guide",
+    title: "How routing works",
+    description: "What happens between Send and the first turn, and what the switches above do.",
+    component: SettingsGuide,
   });
 });
