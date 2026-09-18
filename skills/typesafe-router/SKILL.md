@@ -22,8 +22,8 @@ its bridge refuses `turn/start`, it is excluded from the catalog TypeSafe picks
 from (so it can never be proposed), and a dispatch that would start a turn on it
 is rejected with a message telling you to pick Codex or Claude and send again.
 
-A thread that already sits on a real harness is unaffected by any of this; the
-usual flow below is a proposal you can decline.
+Routing is opt-in, per thread. A thread started directly on a real harness is
+never routed and never held; choosing the TypeSafe Router row is the request.
 
 ## What happens on a first message
 
@@ -43,29 +43,27 @@ usual flow below is a proposal you can decline.
    confirmation card is where a person overrides the proposal.
 4. The composer is replaced by a confirmation card showing the proposed
    harness, model, and effort; effort is editable there when the model offers
-   a choice. **Yep** locks it in; anything else lets the thread start on the
-   harness it already had.
-5. On confirm: if the harness is unchanged, the model and effort are set on
-   this thread and the held message proceeds. If the harness is different, the
-   message moves to a new thread on that harness carrying the same effort and
-   this one is rejected and archived — BB cannot swap a running thread's
-   harness. A thread started on the TypeSafe Router picker row always takes
-   this second path.
+   a choice. **Yep** locks it in; **Cancel** or a timeout ends it there, and
+   nothing runs.
+5. On confirm the message moves to a new thread on the chosen harness,
+   carrying the confirmed effort and the permission and fast-mode choices made
+   on the New Thread page, and the placeholder is rejected and archived — BB
+   cannot swap a running thread's harness.
 
 After that, the harness is locked for the thread. The model can still be
 changed the normal way.
 
 ## What it deliberately does not touch
 
+- Any thread started on a real harness — Codex, Claude, or anything else.
 - Follow-up messages, steers, and retries (only a `pending` thread is routed).
 - Turns being joined (`join-turn`).
 - Hidden background worker threads.
 - Threads an agent or the system started (`startedOnBehalfOf`).
 - Threads another plugin spawned.
 - A queued row the user hits **Send now** on — core bypasses the hook by
-  design, and the message goes out on the harness the thread already had. On a
-  thread sitting on the TypeSafe Router picker row there is no such harness, so
-  that bypass is rejected instead of started.
+  design. The thread is on the TypeSafe Router picker row, which has no harness
+  to run it, so that bypass is rejected instead of started.
 
 If the plugin is disabled or has no API key, every dispatch proceeds untouched —
 with the one exception above: a thread on the TypeSafe Router picker row is

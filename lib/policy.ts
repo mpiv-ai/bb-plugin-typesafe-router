@@ -5,6 +5,10 @@
 // thread runs, so the only moment routing can change it is the first message.
 // Everything else proceeds untouched.
 //
+// Routing is also opt-in per thread: only a first message sent on this
+// plugin's picker row is routed. A thread started on a real harness is that
+// person's choice, and is never held.
+//
 // With one exception that overrides every "proceed": the thread may be sitting
 // on this plugin's own picker stub, which exists so Send can be enabled and
 // cannot run a turn. Releasing a message onto it would start a turn that dies
@@ -127,6 +131,12 @@ function decide(input: PolicyInput): PolicyDecision {
       default:
         break;
     }
+  }
+
+  // Choosing the picker row is the request to be routed. Anything else is a
+  // harness someone picked on purpose.
+  if (isRoutableProviderId(input.requestedProviderId)) {
+    return { action: "proceed", why: "not started on the TypeSafe Router row" };
   }
 
   if (!input.enabled) return { action: "proceed", why: "plugin disabled" };

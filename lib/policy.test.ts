@@ -39,6 +39,10 @@ function routing(overrides: Partial<RoutingRecord> = {}): RoutingRecord {
   };
 }
 
+/** The same dispatch, sent on the picker row — the only place routing is asked for. */
+const onStub = (overrides: Partial<PolicyInput> = {}): PolicyInput =>
+  input({ requestedProviderId: STUB_PROVIDER_ID, ...overrides });
+
 describe("isFirstMessage", () => {
   it("is true only while the thread is pending", () => {
     expect(isFirstMessage("pending")).toBe(true);
@@ -49,22 +53,37 @@ describe("isFirstMessage", () => {
 });
 
 describe("decideDispatch", () => {
-  it("routes a fresh first message from the app", () => {
-    expect(decideDispatch(input())).toEqual({
+  it("routes a first message sent on the picker row", () => {
+    expect(decideDispatch(onStub())).toEqual({
       action: "route",
       reason: SELECTING_REASON,
     });
   });
 
+  it("never routes a thread started on a real harness", () => {
+    // Routing is opt-in per thread: choosing the picker row is the request.
+    // A stale in-flight record from before that rule must not hold it either.
+    const cases: Partial<PolicyInput>[] = [
+      {},
+      { origin: "cli" },
+      { requestedProviderId: "claude-code" },
+      { routing: routing({ phase: "selecting" }) },
+      { routing: routing({ phase: "proposed" }) },
+    ];
+    for (const overrides of cases) {
+      expect(decideDispatch(input(overrides)).action).toBe("proceed");
+    }
+  });
+
   it("keeps waiting while a pass is in flight", () => {
-    expect(decideDispatch(input({ routing: routing({ phase: "selecting" }) }))).toEqual({
+    expect(decideDispatch(onStub({ routing: routing({ phase: "selecting" }) }))).toEqual({
       action: "wait",
       reason: SELECTING_REASON,
     });
   });
 
   it("keeps waiting while the user has a proposal to confirm", () => {
-    expect(decideDispatch(input({ routing: routing({ phase: "proposed" }) }))).toEqual({
+    expect(decideDispatch(onStub({ routing: routing({ phase: "proposed" }) }))).toEqual({
       action: "wait",
       reason: CONFIRMING_REASON,
     });
@@ -119,13 +138,13 @@ describe("decideDispatch", () => {
     // Our spawns seed `confirmed` metadata, but the origin check must not be
     // what lets them through — it must not veto our own plugin id.
     const decision = decideDispatch(
-      input({ origin: "plugin", originPluginId: "typesafe-router" }),
+      onStub({ origin: "plugin", originPluginId: "typesafe-router" }),
     );
     expect(decision.action).toBe("route");
   });
 
   it("routes a CLI-started first message too", () => {
-    expect(decideDispatch(input({ origin: "cli" })).action).toBe("route");
+    expect(decideDispatch(onStub({ origin: "cli" })).action).toBe("route");
   });
 });
 
@@ -187,9 +206,6 @@ describe("decideDispatch on the picker stub", () => {
   // Everything below is a case that proceeds on a real harness. On the stub it
   // must not, because the stub's bridge refuses turn/start: proceeding would
   // trade a readable message for a dead thread.
-  const onStub = (overrides: Partial<PolicyInput> = {}): PolicyInput =>
-    input({ requestedProviderId: STUB_PROVIDER_ID, ...overrides });
-
   it("rejects when the user declined the proposal", () => {
     const decision = decideDispatch(
       onStub({ routing: routing({ phase: "skipped", detail: "declined by the user" }) }),

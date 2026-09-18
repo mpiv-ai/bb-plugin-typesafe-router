@@ -52,6 +52,7 @@ matters and is deliberate:
      failed     → proceed
 
 2. Reasons to stay out of the way.
+     dispatch is not on the picker row   → proceed  (routing is opt-in, per thread)
      plugin disabled                     → proceed
      no TypeSafe API key                 → proceed
      attempt is join-turn                → proceed  (the harness is already running)
@@ -65,6 +66,12 @@ matters and is deliberate:
      phase proposed  → wait  "TypeSafe proposed a harness and model — confirm to start."
      otherwise       → route (same reason as selecting)
 ```
+
+The first line of group 2 is what makes routing opt-in: a thread started on
+Codex, Claude, or any other harness proceeds before anything else is
+considered, even with a stale `selecting` or `proposed` record on it. Every
+reason after it therefore only ever fires for a dispatch on the picker row —
+where the wrapper below turns it into a readable rejection.
 
 Then the wrapper: **if the result is `proceed` and the dispatch would run on
 the picker row, it becomes `reject`** with a message that says why the thread

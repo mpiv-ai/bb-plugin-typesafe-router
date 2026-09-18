@@ -143,8 +143,8 @@ function Line({
 
 /**
  * Replaces the composer while a proposal is pending. Submitting `accept: true`
- * locks the harness; anything else lets the thread start on the harness BB
- * had already chosen.
+ * locks the harness; anything else cancels. Routing only runs for a thread on
+ * the picker row, which cannot run a turn, so there is nothing to fall back to.
  */
 function ConfirmCard({ interaction, submit, cancel }: PluginPendingInteractionProps) {
   const [pending, setPending] = useState(false);
@@ -216,7 +216,7 @@ function ConfirmCard({ interaction, submit, cancel }: PluginPendingInteractionPr
           Yep
         </Button>
         <Button variant="ghost" onClick={() => answer(false)} disabled={pending}>
-          Keep what I had
+          Cancel
         </Button>
       </div>
     </div>
