@@ -52,8 +52,14 @@ export interface CarriedExecution {
   reasoningLevel?: ReasoningLevel;
   serviceTier?: ServiceTier;
   permissionMode?: PermissionMode;
-  /** Provenance of each carried field, so core records a user choice as one. */
-  executionInputSources: Partial<
+  /**
+   * Provenance for the spawn. Core drops a requested provider or model that
+   * carries no source and re-derives it from the project's stored defaults —
+   * which, for a thread started on the picker row, is the picker row. So the
+   * harness and model the router chose are always marked explicit, and each
+   * carried field keeps the source it arrived with.
+   */
+  executionInputSources: { providerId: "explicit"; model: "explicit" } & Partial<
     Record<"reasoningLevel" | "serviceTier" | "permissionMode", ExecutionSource>
   >;
 }
@@ -92,7 +98,9 @@ export function carryExecution(
   model: ModelSupport,
   harness: HarnessSupport,
 ): CarriedExecution {
-  const carried: CarriedExecution = { executionInputSources: {} };
+  const carried: CarriedExecution = {
+    executionInputSources: { providerId: "explicit", model: "explicit" },
+  };
 
   const levels = model.reasoningLevels ?? [];
   if (requested.reasoningLevel !== null && levels.length > 0) {

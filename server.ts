@@ -500,7 +500,9 @@ export default async function plugin(bb: BbPluginApi) {
 
       bb.log.info(
         `routed ${threadId} to ${result.harness.id}/${result.model.id}` +
-          (result.reasoningLevel === null ? "" : `@${result.reasoningLevel}`) +
+          (result.reasoningLevel === null
+            ? ""
+            : `@${result.reasoningLevel} (effort ${result.effortConfidence === null ? "kept" : "proposed"}; requested as ${ctx.executionSources.reasoningLevel ?? "default"})`) +
           ` in ${result.elapsedMs}ms (${result.inputTokens} input tokens)`,
       );
       displayNames.set(threadId, {

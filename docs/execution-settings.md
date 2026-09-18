@@ -97,6 +97,14 @@ carried user choice as a choice rather than a default. Values that were
 defaulted on the placeholder thread are carried as values but not as choices
 (no source entry).
 
+The harness and model are **always** marked `explicit` in it. Core drops a
+requested `providerId` or `model` that carries no source and re-derives it
+from the project's stored defaults — and for a thread that started on the
+picker row, the stored default *is* the picker row. Sending
+`executionInputSources` without those two entries made every routed spawn
+land back on the picker row, where the hook rejected it. The rule lives in
+`carryExecution`, so no caller can assemble a spawn without it.
+
 ## Limits
 
 - **Per-message effort on an existing thread is not possible from a hook.**
