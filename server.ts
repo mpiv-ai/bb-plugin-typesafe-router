@@ -27,7 +27,9 @@ import {
   isHarnessAllowed,
   type CatalogHarness,
   type CatalogModel,
+  type CatalogProvider,
 } from "./lib/catalog.js";
+import { carryExecution, isServiceTier } from "./lib/execution.js";
 import {
   emptyCatalogDetail,
   preferenceSignature,
@@ -46,6 +48,7 @@ import {
   STUB_MODEL,
   STUB_PROVIDER_DISPLAY_NAME,
   STUB_PROVIDER_ID,
+  STUB_REASONING_LEVELS,
 } from "./lib/provider.js";
 import { createPreferenceStore } from "./lib/preference-store.js";
 import { routeFirstMessage } from "./lib/router.js";
@@ -150,16 +153,23 @@ export default async function plugin(bb: BbPluginApi) {
         "Nothing to renew. TypeSafe Router only picks the harness; that harness handles its own sign-in.",
       installUrl: "https://github.com/mpiv-ai/bb-plugin-typesafe-router",
     },
+    // Effort, tier, and permission are offered here so a choice made on the
+    // New Thread page can follow the message to the harness that runs it;
+    // the router itself uses none of them.
     capabilities: {
-      supportsServiceTier: false,
+      supportsServiceTier: true,
       supportsNativeUserQuestion: false,
       fork: "none",
       supportsManualCompaction: false,
       supportsThreadArchive: false,
       supportsThreadRename: false,
-      permissionModes: ["full"],
-      reasoningLevels: ["medium"],
+      permissionModes: ["accept-edits", "auto", "full"],
+      reasoningLevels: [...STUB_REASONING_LEVELS],
     },
+    serviceTiers: [
+      { id: "default", label: "Default" },
+      { id: "fast", label: "Fast" },
+    ],
     composerActions: [],
     // One model, always the default, so picking the provider is the whole choice.
     models: { fallback: [STUB_MODEL], scope: "host" },
@@ -278,6 +288,37 @@ export default async function plugin(bb: BbPluginApi) {
     routableBeforeFilter: number;
   }
 
+  type LiveProvider = Awaited<ReturnType<typeof bb.sdk.providers.list>>[number];
+  type LiveModel = Awaited<ReturnType<typeof bb.sdk.providers.models>>["models"][number];
+
+  /** A live provider narrowed to what routing and the spawn need to know. */
+  function describeProvider(provider: LiveProvider): CatalogProvider {
+    return {
+      id: provider.id,
+      displayName: provider.displayName,
+      available: provider.available,
+      permissionModes: provider.capabilities.permissionModes,
+      // The coarse flag is what the picker keys on; the descriptor list, when
+      // a provider ships one, is the precise set.
+      serviceTiers: provider.capabilities.supportsServiceTier
+        ? (provider.serviceTiers ?? [{ id: "default" }, { id: "fast" }])
+            .map((tier) => tier.id)
+            .filter(isServiceTier)
+        : [],
+    };
+  }
+
+  function describeModel(model: LiveModel): CatalogModel {
+    return {
+      id: model.id,
+      model: model.model,
+      displayName: model.displayName,
+      description: model.description,
+      isDefault: model.isDefault,
+      reasoningLevels: model.supportedReasoningEfforts.map((effort) => effort.reasoningEffort),
+    };
+  }
+
   const catalogCache = new Map<string, { at: number; loaded: LoadedCatalog }>();
 
   /**
@@ -302,9 +343,9 @@ export default async function plugin(bb: BbPluginApi) {
     const routable = providers.filter(
       (provider) => provider.available && isRoutableProviderId(provider.id),
     );
-    const allowed = routable.filter((provider) =>
-      isHarnessAllowed(provider.id, preferences.filter),
-    );
+    const allowed = routable
+      .filter((provider) => isHarnessAllowed(provider.id, preferences.filter))
+      .map(describeProvider);
     const perProvider = await Promise.all(
       allowed.map(async (provider) => {
         try {
@@ -312,7 +353,7 @@ export default async function plugin(bb: BbPluginApi) {
             ...routing,
             providerId: provider.id,
           });
-          return [provider.id, result.models as CatalogModel[]] as const;
+          return [provider.id, result.models.map(describeModel)] as const;
         } catch (cause) {
           bb.log.warn(
             `models for ${provider.id} failed: ${cause instanceof Error ? cause.message : String(cause)}`,
@@ -527,8 +568,22 @@ export default async function plugin(bb: BbPluginApi) {
     if (!isRoutableProviderId(harness.id)) {
       throw new Error(`refusing to confirm ${threadId} onto ${harness.id}`);
     }
+    // The user's own effort, tier, and permission choices follow the message
+    // to the harness that runs it, trimmed to what that harness accepts.
+    const execution = carryExecution(
+      ctx.requestedExecution,
+      ctx.executionSources,
+      model,
+      harness,
+    );
     if (harness.id === ctx.requestedExecution.providerId) {
-      await bb.sdk.threads.update({ threadId, model: model.id });
+      await bb.sdk.threads.update({
+        threadId,
+        model: model.id,
+        ...(execution.reasoningLevel === undefined
+          ? {}
+          : { reasoningLevel: execution.reasoningLevel }),
+      });
       await writeRouting(threadId, {
         phase: "confirmed",
         providerId: harness.id,
@@ -548,6 +603,7 @@ export default async function plugin(bb: BbPluginApi) {
           : { type: "reuse", environmentId: ctx.environment.id },
       providerId: harness.id,
       model: model.id,
+      ...execution,
       input: [...ctx.input.blocks],
       ...(ctx.thread.title === null ? {} : { title: ctx.thread.title }),
       // Seeded as already-confirmed so the new thread's own first dispatch
