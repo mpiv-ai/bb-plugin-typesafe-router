@@ -98,7 +98,10 @@ still exactly two serial Choice calls, followed by **Yep**.
 
 Only the first message's text is sent to TypeSafe, truncated to 4000
 characters, along with the project name and the live names/descriptions, authored capability cards, and snapshot ranks
-of the candidate harnesses and models. The repository, the timeline, and later messages are not sent.
+of the candidate harnesses and models. When an effort call is made, the chosen
+model's own effort ladder — level names, position, and relative cost, not
+usage or billing data — goes too. The repository, the timeline, and later
+messages are not sent.
 
 ## Troubleshooting
 
@@ -145,10 +148,14 @@ hook itself only reads cheap state and answers. It holds the first message with
    800+ models). Drop the harnesses your settings exclude, then curate each
    survivor to at most eight models for the locally classified task axis. The catalogs themselves are
    always fetched live; the settings only trim what Jev is shown.
-2. Two sequential TypeSafe Choice calls: **which harness**, then **which model
-   inside that harness**. Hierarchical, because those are two different
-   judgements and a flat 40-label question is neither.
-3. Replace the composer with a confirmation card. **Yep** applies it.
+2. Two or three sequential TypeSafe Choice calls: **which harness**, then
+   **which model inside that harness**, then — only when that model offers more
+   than one reasoning effort and you did not already pick one on the New
+   Thread page — **how much effort**. Hierarchical, because these are separate
+   judgements and a flat 40-label question is none of them.
+3. Replace the composer with a confirmation card showing the proposed harness,
+   model, and effort. Effort is editable right there when the model offers a
+   choice. **Yep** applies it.
 4. Same harness → set the model on this thread and release the held message.
    Different harness → spawn a new thread on it carrying the same input, then
    reject and archive this one.
@@ -172,7 +179,8 @@ harness instead.
 - `lib/preferences.ts` — stored harness lists
   parsed into the decisions routing makes. Pure.
 - `lib/policy.ts` — what to intercept and what to answer on a re-attempt. Pure.
-- `lib/router.ts` — the two Choice calls, against an injectable client.
+- `lib/router.ts` — the harness, model, and effort Choice calls, against an
+  injectable client.
 - `server.ts` — wiring: settings, the hook, the routing pass, RPC.
 - `app.tsx` — the composer banner, the confirmation card, and the settings
   section on the plugin's page.

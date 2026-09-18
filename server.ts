@@ -29,7 +29,7 @@ import {
   type CatalogModel,
   type CatalogProvider,
 } from "./lib/catalog.js";
-import { carryExecution, isServiceTier } from "./lib/execution.js";
+import { carryExecution, isServiceTier, type ReasoningLevel } from "./lib/execution.js";
 import {
   emptyCatalogDetail,
   preferenceSignature,
@@ -316,6 +316,7 @@ export default async function plugin(bb: BbPluginApi) {
       description: model.description,
       isDefault: model.isDefault,
       reasoningLevels: model.supportedReasoningEfforts.map((effort) => effort.reasoningEffort),
+      defaultReasoningLevel: model.defaultReasoningEffort,
     };
   }
 
@@ -493,10 +494,14 @@ export default async function plugin(bb: BbPluginApi) {
         projectName: ctx.project.name ?? null,
         catalog,
         currentProviderId: ctx.requestedExecution.providerId,
+        requestedReasoningLevel: ctx.requestedExecution.reasoningLevel,
+        reasoningLevelIsExplicit: ctx.executionSources.reasoningLevel === "explicit",
       });
 
       bb.log.info(
-        `routed ${threadId} to ${result.harness.id}/${result.model.id} in ${result.elapsedMs}ms (${result.inputTokens} input tokens)`,
+        `routed ${threadId} to ${result.harness.id}/${result.model.id}` +
+          (result.reasoningLevel === null ? "" : `@${result.reasoningLevel}`) +
+          ` in ${result.elapsedMs}ms (${result.inputTokens} input tokens)`,
       );
       displayNames.set(threadId, {
         provider: result.harness.displayName,
@@ -525,6 +530,9 @@ export default async function plugin(bb: BbPluginApi) {
           currentProviderId: ctx.requestedExecution.providerId,
           harnessConfidence: result.harnessConfidence,
           modelConfidence: result.modelConfidence,
+          reasoningLevel: result.reasoningLevel,
+          reasoningLevels: [...(result.model.reasoningLevels ?? [])],
+          effortConfidence: result.effortConfidence,
         },
       });
 
@@ -532,17 +540,26 @@ export default async function plugin(bb: BbPluginApi) {
         await settle(threadId, "skipped", `confirmation ${answer.outcome}`);
         return;
       }
-      const accepted =
-        typeof answer.value === "object" &&
-        answer.value !== null &&
-        !Array.isArray(answer.value) &&
-        (answer.value as Record<string, unknown>).accept === true;
-      if (!accepted) {
+      const value =
+        typeof answer.value === "object" && answer.value !== null && !Array.isArray(answer.value)
+          ? (answer.value as Record<string, unknown>)
+          : {};
+      if (value.accept !== true) {
         await settle(threadId, "skipped", "declined by the user");
         return;
       }
 
-      await apply(ctx, result.harness, result.model);
+      // Trust the card's choice only when it names a level the model actually
+      // offers; anything else — including a stale or tampered payload — falls
+      // back to what the router itself proposed.
+      const offeredLevels = result.model.reasoningLevels ?? [];
+      const reasoningLevel =
+        typeof value.reasoningLevel === "string" &&
+        (offeredLevels as readonly string[]).includes(value.reasoningLevel)
+          ? (value.reasoningLevel as ReasoningLevel)
+          : result.reasoningLevel;
+
+      await apply(ctx, result.harness, result.model, reasoningLevel);
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       bb.log.error(`routing pass failed for ${threadId}: ${message}`);
@@ -560,6 +577,7 @@ export default async function plugin(bb: BbPluginApi) {
     ctx: MessageDispatchHookContext,
     harness: CatalogHarness,
     model: CatalogModel,
+    reasoningLevel: ReasoningLevel | null,
   ): Promise<void> {
     const threadId = ctx.thread.id;
     // Unreachable while the catalog excludes the stub, and cheap insurance if
@@ -568,11 +586,14 @@ export default async function plugin(bb: BbPluginApi) {
     if (!isRoutableProviderId(harness.id)) {
       throw new Error(`refusing to confirm ${threadId} onto ${harness.id}`);
     }
-    // The user's own effort, tier, and permission choices follow the message
-    // to the harness that runs it, trimmed to what that harness accepts.
+    // The user's own tier and permission choices, plus the effort Jev proposed
+    // (or the user's own explicit one), follow the message to the harness that
+    // runs it — all through the one helper, so clamping and provenance stay in
+    // one place. A routed effort counts as explicit: it is what the card showed
+    // and what the user confirmed.
     const execution = carryExecution(
-      ctx.requestedExecution,
-      ctx.executionSources,
+      reasoningLevel === null ? ctx.requestedExecution : { ...ctx.requestedExecution, reasoningLevel },
+      reasoningLevel === null ? ctx.executionSources : { ...ctx.executionSources, reasoningLevel: "explicit" },
       model,
       harness,
     );

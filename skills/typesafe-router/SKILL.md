@@ -36,15 +36,21 @@ usual flow below is a proposal you can decline.
    settings exclude, and curates each survivor to at most
    eight models ranked for the local task axis. The catalogs are always read
    live; settings only trim what Jev is offered.
-3. TypeSafe (Jev) answers two sequential Choice questions: first the harness,
-   then a model from that harness's curated list only.
-4. The composer is replaced by a confirmation card. **Yep** locks it in;
-   anything else lets the thread start on the harness it already had.
-5. On confirm: if the harness is unchanged, the model is set on this thread and
-   the held message proceeds. If the harness is different, the message moves to
-   a new thread on that harness and this one is rejected and archived — BB
-   cannot swap a running thread's harness. A thread started on the TypeSafe
-   Router picker row always takes this second path.
+3. TypeSafe (Jev) answers two or three sequential Choice questions: first the
+   harness, then a model from that harness's curated list, then — only when
+   that model offers more than one reasoning effort and the user did not
+   already choose one on the New Thread page — an effort from that model's own
+   ladder.
+4. The composer is replaced by a confirmation card showing the proposed
+   harness, model, and effort; effort is editable there when the model offers
+   a choice. **Yep** locks it in; anything else lets the thread start on the
+   harness it already had.
+5. On confirm: if the harness is unchanged, the model and effort are set on
+   this thread and the held message proceeds. If the harness is different, the
+   message moves to a new thread on that harness carrying the same effort and
+   this one is rejected and archived — BB cannot swap a running thread's
+   harness. A thread started on the TypeSafe Router picker row always takes
+   this second path.
 
 After that, the harness is locked for the thread. The model can still be
 changed the normal way.
@@ -75,8 +81,10 @@ first message. Old preference keys migrate once, preserving include/exclude
 restrictions. The old model cap and curation mode are retired.
 
 Shortlists always use a local task-axis classifier and the vendored public-eval
-snapshot, with a constant cap of eight. Both Choice calls include capability
-cards. No third TypeSafe call or live benchmark scrape is performed.
+snapshot, with a constant cap of eight. The harness and model Choice calls
+include capability cards; the effort call, when it runs, only ever describes
+the already-chosen model's own ladder — no live benchmark scrape is
+performed for any of the three.
 
 If filtering leaves no harness, routing fails closed before calling TypeSafe.
 The picker stub never receives proceed.
@@ -86,4 +94,6 @@ The picker stub never receives proceed.
 Only the first message's text is sent to TypeSafe, truncated to 4000
 characters, along with the project name and the names and descriptions of the
 harnesses and models being chosen between, plus authored capability cards
-and vendored snapshot ranks. The repository, the timeline, and later messages are not sent.
+and vendored snapshot ranks. When an effort call runs, the chosen model's own
+ladder (level names, position, relative cost) goes too. The repository, the
+timeline, and later messages are not sent.

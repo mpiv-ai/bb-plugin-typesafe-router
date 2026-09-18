@@ -156,11 +156,17 @@ function ConfirmCard({ interaction, submit, cancel }: PluginPendingInteractionPr
   const providerName = asString(payload.providerName, "Unknown harness");
   const modelName = asString(payload.modelName, "default model");
   const keepsHarness = payload.keepsHarness === true;
+  const reasoningLevels = Array.isArray(payload.reasoningLevels)
+    ? payload.reasoningLevels.filter((level): level is string => typeof level === "string")
+    : [];
+  const proposedLevel = typeof payload.reasoningLevel === "string" ? payload.reasoningLevel : null;
+  const [reasoningLevel, setReasoningLevel] = useState(proposedLevel);
+  const showEffort = reasoningLevels.length > 0 || proposedLevel !== null;
 
   const answer = (accept: boolean) => {
     if (pending) return;
     setPending(true);
-    const done = accept ? submit({ accept: true }) : cancel();
+    const done = accept ? submit({ accept: true, reasoningLevel }) : cancel();
     done.catch(() => undefined).finally(() => setPending(false));
   };
 
@@ -175,11 +181,34 @@ function ConfirmCard({ interaction, submit, cancel }: PluginPendingInteractionPr
         <dd className="text-foreground">{providerName}</dd>
         <dt className="text-muted-foreground">Model</dt>
         <dd className="text-foreground">{modelName}</dd>
+        {showEffort && (
+          <>
+            <dt className="text-muted-foreground">Effort</dt>
+            <dd className="text-foreground">
+              {reasoningLevels.length > 1 ? (
+                <select
+                  className="rounded-md border border-input bg-transparent px-2 py-1 text-sm text-foreground"
+                  value={reasoningLevel ?? ""}
+                  disabled={pending}
+                  onChange={(event) => setReasoningLevel(event.target.value)}
+                >
+                  {reasoningLevels.map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                (reasoningLevel ?? "default")
+              )}
+            </dd>
+          </>
+        )}
       </dl>
       <p className="mt-3 text-xs text-muted-foreground">
         {keepsHarness
-          ? "The harness is locked for this thread once it starts. The model can still be changed later."
-          : "This is a different harness than the thread was created with, so your message moves to a new thread. The harness is locked there; the model can still be changed."}
+          ? "The harness is locked for this thread once it starts. The model and effort can still be changed later."
+          : "This is a different harness than the thread was created with, so your message moves to a new thread. The harness is locked there; the model and effort can still be changed."}
       </p>
       <div className="mt-4 flex items-center gap-2">
         <Button onClick={() => answer(true)} disabled={pending}>

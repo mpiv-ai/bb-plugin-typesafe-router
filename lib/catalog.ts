@@ -15,6 +15,8 @@ export interface CatalogModel {
   isDefault: boolean;
   /** Efforts the model accepts, lowest to highest; absent when the catalog did not say. */
   reasoningLevels?: readonly ReasoningLevel[];
+  /** The model's own default effort; absent when the catalog did not say. */
+  defaultReasoningLevel?: ReasoningLevel;
 }
 
 /** One harness (BB provider) plus the curated models we will offer for it. */
