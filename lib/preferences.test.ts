@@ -1,12 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { isHarnessAllowed, MAX_MODELS_PER_HARNESS } from "./catalog.js";
 import {
-  clampMaxModels,
   emptyCatalogDetail,
   formatHarnessIds,
-  MAX_MODELS_CEILING,
-  MIN_MODELS_PER_HARNESS,
-  parseCurationMode,
   parseHarnessIds,
   preferenceSignature,
   readPreferences,
@@ -18,8 +14,6 @@ import { STUB_PROVIDER_ID } from "./provider.js";
 function stored(overrides: Partial<StoredPreferences> = {}): StoredPreferences {
   return {
     enabled: true,
-    maxModelsPerHarness: MAX_MODELS_PER_HARNESS,
-    curationMode: "weighted",
     includeHarnesses: "",
     excludeHarnesses: "",
     ...overrides,
@@ -74,53 +68,15 @@ describe("formatHarnessIds", () => {
   });
 });
 
-describe("parseCurationMode", () => {
-  it("accepts the two known modes", () => {
-    expect(parseCurationMode("weighted")).toBe("weighted");
-    expect(parseCurationMode("catalog_order")).toBe("catalog_order");
-  });
-
-  it("falls back to weighted for anything else", () => {
-    expect(parseCurationMode("nonsense")).toBe("weighted");
-    expect(parseCurationMode(undefined)).toBe("weighted");
-    expect(parseCurationMode(7)).toBe("weighted");
-  });
-});
-
-describe("clampMaxModels", () => {
-  it("holds the value inside its bounds", () => {
-    expect(clampMaxModels(1)).toBe(MIN_MODELS_PER_HARNESS);
-    expect(clampMaxModels(0)).toBe(MIN_MODELS_PER_HARNESS);
-    expect(clampMaxModels(-5)).toBe(MIN_MODELS_PER_HARNESS);
-    expect(clampMaxModels(99)).toBe(MAX_MODELS_CEILING);
-    expect(clampMaxModels(12)).toBe(12);
-  });
-
-  it("truncates a fractional value rather than rejecting it", () => {
-    expect(clampMaxModels(5.9)).toBe(5);
-  });
-
-  it("falls back to the built-in default for a non-number", () => {
-    expect(clampMaxModels(undefined)).toBe(MAX_MODELS_PER_HARNESS);
-    expect(clampMaxModels("8")).toBe(MAX_MODELS_PER_HARNESS);
-    expect(clampMaxModels(Number.NaN)).toBe(MAX_MODELS_PER_HARNESS);
-    expect(clampMaxModels(Number.POSITIVE_INFINITY)).toBe(MAX_MODELS_PER_HARNESS);
-  });
-});
-
 describe("readPreferences", () => {
   it("turns stored settings into the decisions routing makes", () => {
     const preferences = readPreferences(
       stored({
-        maxModelsPerHarness: 40,
-        curationMode: "catalog_order",
         includeHarnesses: "codex\n# keep omp off for now",
         excludeHarnesses: "acp-omp",
       }),
     );
     expect(preferences.enabled).toBe(true);
-    expect(preferences.maxModelsPerHarness).toBe(MAX_MODELS_CEILING);
-    expect(preferences.curationMode).toBe("catalog_order");
     expect([...preferences.filter.include]).toEqual(["codex"]);
     expect([...preferences.filter.exclude]).toEqual(["acp-omp"]);
   });
@@ -175,12 +131,6 @@ describe("withHarnessAllowed", () => {
 describe("preferenceSignature", () => {
   it("changes when any preference that shapes the catalog changes", () => {
     const base = preferenceSignature(readPreferences(stored()));
-    expect(preferenceSignature(readPreferences(stored({ maxModelsPerHarness: 4 })))).not.toBe(
-      base,
-    );
-    expect(
-      preferenceSignature(readPreferences(stored({ curationMode: "catalog_order" }))),
-    ).not.toBe(base);
     expect(preferenceSignature(readPreferences(stored({ excludeHarnesses: "pi" })))).not.toBe(
       base,
     );

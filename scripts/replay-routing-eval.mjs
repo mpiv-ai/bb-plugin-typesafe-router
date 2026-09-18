@@ -5,7 +5,7 @@
 // Two Choice passes over the same eval set, the same catalog, and the same Jev
 // model. The only difference is what the criteria say:
 //
-//   thin  — what `lib/router.ts` sends today: BB display names plus the
+//   thin  — the historical name-only baseline: BB display names plus the
 //           provider's own `description`, which on omp is the empty string.
 //   rich  — the structured card: what / not_for / tools / cost_band / context
 //           / examples, per harness and per model family.
@@ -49,6 +49,12 @@ function fail(message) {
 
 const cards = readJson("capability-cards.json");
 const snapshot = readJson("catalog-snapshot.json");
+for (const provider of snapshot.providers) {
+  for (const model of provider.shortlist) {
+    model.familyKey = model.familyKey.replace(/(\d)\.(\d)/g, "$1-$2")
+      .replace(/^claude-(\d+(?:-\d+)?)-(opus|sonnet|haiku)$/, "claude-$2-$1");
+  }
+}
 const cases = readFileSync(join(DATASETS, "eval-cases.jsonl"), "utf8")
   .split("\n")
   .filter((line) => line.trim() !== "")
@@ -91,7 +97,7 @@ for (const offer of offers) {
 
 // ---------------------------------------------------------------- criteria
 
-/** What routing sends today: display names, plus a description that is often "". */
+/** Historical baseline: display names, plus a description that is often "". */
 function thinHarnessCriteria(currentId) {
   const criteria = {};
   for (const offer of offers) {

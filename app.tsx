@@ -10,7 +10,7 @@
 // declared settings; this one exists because the useful question is "which of
 // the harnesses ON THIS MACHINE may Jev pick from", and that list is live
 // server state, not something a person should have to type provider ids to
-// answer. Every control writes the same settings the CLI writes.
+// answer. The controls write plugin storage through RPC.
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -22,19 +22,9 @@ import {
 } from "@get-bb/plugin-sdk/app";
 import type { PluginPendingInteractionProps } from "@get-bb/plugin-sdk/app";
 import type { rpcContract, RoutingView, SettingsState } from "./server";
-import {
-  CURATION_MODES,
-  CURATION_MODE_HINTS,
-  CURATION_MODE_LABELS,
-  MAX_MODELS_CEILING,
-  MIN_MODELS_PER_HARNESS,
-  type CurationMode,
-} from "./lib/preferences";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+import { SettingsControls } from "./components/settings-controls";
 
 /** Must match CONFIRM_RENDERER_ID in server.ts. */
 const CONFIRM_RENDERER_ID = "typesafe-confirm";
@@ -203,51 +193,18 @@ function ConfirmCard({ interaction, submit, cancel }: PluginPendingInteractionPr
   );
 }
 
-/** One labelled control row, in the idiom BB's own settings rows use. */
-function Field({
-  label,
-  hint,
-  control,
-}: {
-  label: string;
-  hint?: string;
-  control: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4 py-3">
-      <div className="min-w-0 flex-1">
-        <div className="text-sm text-foreground">{label}</div>
-        {hint === undefined ? null : (
-          <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>
-        )}
-      </div>
-      <div className="shrink-0">{control}</div>
-    </div>
-  );
-}
-
 /**
  * The plugin's settings section. Reads and writes only through RPC, so the
- * stored settings stay the single source of truth and `bb plugin config` sees
- * every change this page makes.
+ * preferences stay in plugin storage.
  */
 function SettingsPanel() {
   const rpc = useRpc<typeof rpcContract>();
   const [state, setState] = useState<SettingsState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [showLists, setShowLists] = useState(false);
-  // Text drafts, so typing does not round-trip a write per keystroke.
-  const [maxDraft, setMaxDraft] = useState("");
-  const [includeDraft, setIncludeDraft] = useState("");
-  const [excludeDraft, setExcludeDraft] = useState("");
-
   const absorb = useCallback((next: SettingsState) => {
     setState(next);
     setError(null);
-    setMaxDraft(String(next.maxModelsPerHarness));
-    setIncludeDraft(next.includeHarnesses);
-    setExcludeDraft(next.excludeHarnesses);
   }, []);
   const report = useCallback((cause: unknown) => {
     setError(cause instanceof Error ? cause.message : String(cause));
@@ -275,205 +232,10 @@ function SettingsPanel() {
     );
   }
 
-  const update = (patch: Parameters<typeof rpc.call<"settings_update">>[1]) => {
-    apply(() => rpc.call("settings_update", patch));
-  };
-  const commitMax = () => {
-    const parsed = Number.parseInt(maxDraft, 10);
-    if (Number.isNaN(parsed) || parsed === state.maxModelsPerHarness) {
-      setMaxDraft(String(state.maxModelsPerHarness));
-      return;
-    }
-    update({ maxModelsPerHarness: parsed });
-  };
-  const usable = state.harnesses.filter((harness) => harness.available);
-  const allowedCount = usable.filter((harness) => harness.allowed).length;
-
-  return (
-    <div className="flex flex-col gap-5">
-      {state.hasApiKey ? null : (
-        <p className="rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-          No TypeSafe API key yet, so nothing is being routed. Set it in the
-          settings above, or with{" "}
-          <code>bb plugin config typesafe-router set typesafeApiKey &lt;key&gt;</code>.
-        </p>
-      )}
-
-      <div className="divide-y divide-border">
-        <Field
-          label="Route first messages"
-          hint="Off leaves every thread on the harness it was created with."
-          control={
-            <Switch
-              checked={state.enabled}
-              disabled={busy}
-              aria-label="Route first messages"
-              onCheckedChange={(checked) => update({ enabled: checked })}
-            />
-          }
-        />
-        <Field
-          label="Models offered per harness"
-          hint={`How many models from each harness Jev chooses between (${MIN_MODELS_PER_HARNESS}–${MAX_MODELS_CEILING}).`}
-          control={
-            <Input
-              type="number"
-              className="w-20 text-right"
-              min={MIN_MODELS_PER_HARNESS}
-              max={MAX_MODELS_CEILING}
-              value={maxDraft}
-              disabled={busy}
-              aria-label="Models offered per harness"
-              onChange={(event) => setMaxDraft(event.target.value)}
-              onBlur={commitMax}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") event.currentTarget.blur();
-              }}
-            />
-          }
-        />
-      </div>
-
-      <div>
-        <div className="text-sm text-foreground">How to trim an oversized harness</div>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {CURATION_MODE_HINTS[state.curationMode as CurationMode] ??
-            CURATION_MODE_HINTS.weighted}
-        </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {CURATION_MODES.map((mode) => (
-            <Button
-              key={mode}
-              size="sm"
-              variant={state.curationMode === mode ? "default" : "outline"}
-              disabled={busy}
-              aria-pressed={state.curationMode === mode}
-              onClick={() => update({ curationMode: mode })}
-            >
-              {CURATION_MODE_LABELS[mode]}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <div className="flex items-baseline justify-between gap-3">
-          <div className="text-sm text-foreground">Harnesses Jev may choose from</div>
-          <span className="text-xs text-muted-foreground">
-            {allowedCount} of {usable.length} on
-          </span>
-        </div>
-        {state.harnessError !== null ? (
-          <p className="mt-2 text-xs text-destructive">
-            Could not read this machine's harnesses ({state.harnessError}). The
-            lists below still work.
-          </p>
-        ) : usable.length === 0 ? (
-          <p className="mt-2 text-xs text-muted-foreground">
-            No harness on this machine can run a turn yet. Install and sign in to
-            one, and it will appear here.
-          </p>
-        ) : (
-          <ul className="mt-2 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card px-3">
-            {usable.map((harness) => (
-              <li
-                key={harness.id}
-                className="flex items-center justify-between gap-3 py-2.5"
-              >
-                <div className="min-w-0">
-                  <div className="truncate text-sm text-foreground">
-                    {harness.displayName}
-                  </div>
-                  <div className="truncate font-mono text-xs text-muted-foreground">
-                    {harness.id}
-                  </div>
-                </div>
-                <Switch
-                  checked={harness.allowed}
-                  disabled={busy}
-                  aria-label={`Let TypeSafe choose ${harness.displayName}`}
-                  onCheckedChange={(checked) => {
-                    apply(() =>
-                      rpc.call("settings_set_harness", {
-                        providerId: harness.id,
-                        allowed: checked,
-                      }),
-                    );
-                  }}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-        {allowedCount === 0 && usable.length > 0 ? (
-          <p className="mt-2 text-xs text-destructive">
-            Nothing is left to route to. A first message will be refused with an
-            explanation until you switch a harness back on.
-          </p>
-        ) : null}
-      </div>
-
-      <div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="-ml-2 text-muted-foreground"
-          onClick={() => setShowLists((open) => !open)}
-        >
-          <Icon
-            name={showLists ? "ChevronDown" : "ChevronRight"}
-            className="size-3.5"
-          />
-          Edit the lists directly
-        </Button>
-        {showLists ? (
-          <div className="mt-2 flex flex-col gap-3">
-            <p className="text-xs text-muted-foreground">
-              One provider id per line; <code>#</code> starts a comment. The
-              include list empty means every available harness. Toggling a
-              harness above rewrites the exclude list.
-            </p>
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-              Only these harnesses
-              <Textarea
-                rows={3}
-                className="font-mono text-xs"
-                value={includeDraft}
-                disabled={busy}
-                onChange={(event) => setIncludeDraft(event.target.value)}
-                onBlur={() => {
-                  if (includeDraft !== state.includeHarnesses) {
-                    update({ includeHarnesses: includeDraft });
-                  }
-                }}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-              Never these harnesses
-              <Textarea
-                rows={3}
-                className="font-mono text-xs"
-                value={excludeDraft}
-                disabled={busy}
-                onChange={(event) => setExcludeDraft(event.target.value)}
-                onBlur={() => {
-                  if (excludeDraft !== state.excludeHarnesses) {
-                    update({ excludeHarnesses: excludeDraft });
-                  }
-                }}
-              />
-            </label>
-          </div>
-        ) : null}
-      </div>
-
-      {error === null ? null : (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-    </div>
-  );
+  return <SettingsControls state={state} busy={busy} error={error}
+    onEnabled={enabled => apply(() => rpc.call("settings_update", { enabled }))}
+    onHarness={(providerId, allowed) => apply(() => rpc.call("settings_set_harness", { providerId, allowed }))}
+  />;
 }
 
 export default definePluginApp((app) => {
@@ -491,7 +253,7 @@ export default definePluginApp((app) => {
     id: "routing-preferences",
     title: "Routing preferences",
     description:
-      "Which of this machine's harnesses TypeSafe may choose from, and how much of each catalog it sees.",
+      "Choose which available harnesses TypeSafe may use.",
     component: SettingsPanel,
   });
 });

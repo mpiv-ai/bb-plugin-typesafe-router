@@ -10,48 +10,15 @@
 // kept rather than rejected — a machine that does not have `acp-omp` today may
 // have it tomorrow, and an id that matches nothing simply filters nothing.
 
-import {
-  CURATION_MODES,
-  MAX_MODELS_PER_HARNESS,
-  type CurationMode,
-  type HarnessFilter,
-} from "./catalog.js";
-
-export { CURATION_MODES, type CurationMode, type HarnessFilter };
-
-/** Labels for the two curation modes, shared by the settings page and the docs. */
-export const CURATION_MODE_LABELS: Record<CurationMode, string> = {
-  weighted: "Built-in name weights",
-  catalog_order: "Keep the provider's order",
-};
-
-export const CURATION_MODE_HINTS: Record<CurationMode, string> = {
-  weighted:
-    "Rank an oversized harness by this plugin's name weights, so the models it recognises survive the cut.",
-  catalog_order:
-    "Boost nothing. Cut an oversized harness at the provider's own order, keeping its default.",
-};
-
-/**
- * Bounds for `maxModelsPerHarness`. Below two there is no choice left to make;
- * above sixteen a Choice call gets expensive without getting better.
- */
-export const MIN_MODELS_PER_HARNESS = 2;
-export const MAX_MODELS_CEILING = 16;
-
-/** The settings values routing reads, as `settings.get()` returns them. */
+import type { HarnessFilter } from "./catalog.js";
+export type { HarnessFilter };
 export interface StoredPreferences {
   enabled: boolean;
-  maxModelsPerHarness: number;
-  curationMode: string;
   includeHarnesses: string;
   excludeHarnesses: string;
 }
-
 export interface RouterPreferences {
   enabled: boolean;
-  maxModelsPerHarness: number;
-  curationMode: CurationMode;
   filter: HarnessFilter;
 }
 
@@ -75,21 +42,9 @@ export function formatHarnessIds(ids: Iterable<string>): string {
   return [...ids].sort().join("\n");
 }
 
-export function parseCurationMode(raw: unknown): CurationMode {
-  return CURATION_MODES.includes(raw as CurationMode) ? (raw as CurationMode) : "weighted";
-}
-
-/** Hold the cap inside its bounds, whatever a stored or typed value says. */
-export function clampMaxModels(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) return MAX_MODELS_PER_HARNESS;
-  return Math.min(MAX_MODELS_CEILING, Math.max(MIN_MODELS_PER_HARNESS, Math.trunc(value)));
-}
-
 export function readPreferences(values: StoredPreferences): RouterPreferences {
   return {
     enabled: values.enabled,
-    maxModelsPerHarness: clampMaxModels(values.maxModelsPerHarness),
-    curationMode: parseCurationMode(values.curationMode),
     filter: {
       include: parseHarnessIds(values.includeHarnesses),
       exclude: parseHarnessIds(values.excludeHarnesses),
@@ -134,8 +89,6 @@ export function withHarnessAllowed(
  */
 export function preferenceSignature(preferences: RouterPreferences): string {
   return [
-    preferences.maxModelsPerHarness,
-    preferences.curationMode,
     formatHarnessIds(preferences.filter.include).replace(/\n/g, ","),
     formatHarnessIds(preferences.filter.exclude).replace(/\n/g, ","),
   ].join("|");

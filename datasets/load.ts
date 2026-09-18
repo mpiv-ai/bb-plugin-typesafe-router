@@ -3,6 +3,7 @@
 // tests are the validation, and a loader that silently repaired a malformed
 // card would hide exactly the failure they exist to catch.
 
+import { modelFamilyKey } from "../lib/family.js";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -78,7 +79,17 @@ export function loadCards(): CapabilityCards {
 }
 
 export function loadSnapshot(): CatalogSnapshot {
-  return JSON.parse(readFileSync(join(HERE, "catalog-snapshot.json"), "utf8"));
+  const snapshot: CatalogSnapshot = JSON.parse(readFileSync(join(HERE, "catalog-snapshot.json"), "utf8"));
+  const index: Record<string, string[]> = {};
+  for (const [key, providers] of Object.entries(snapshot.familyIndex)) {
+    const normalized = modelFamilyKey(key);
+    index[normalized] = [...new Set([...(index[normalized] ?? []), ...providers])];
+  }
+  snapshot.familyIndex = index;
+  for (const provider of snapshot.providers) {
+    for (const model of provider.shortlist) model.familyKey = modelFamilyKey(model.familyKey);
+  }
+  return snapshot;
 }
 
 export function loadEvalCases(): EvalCase[] {

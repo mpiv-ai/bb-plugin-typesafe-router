@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "captured": "2026-09-17",
+  "method": "Within each benchmark, rank measured families on a 0\u2013100 percentile scale; average percentiles on an axis. Missing results stay null, not zero. Mixed averages available axes. Different cohorts are a routing heuristic, not a cross-benchmark quality measurement. Ties preserve catalog order.",
+  "writing_ops_proxy": "GDPval-AA v2 knowledge-work Elo is a writing/office-work proxy, not a creative-writing evaluation. AutomationBench supplies the ops/agents axis.",
+  "limitations": "Small manually transcribed public snapshot; vendor-reported setups differ. No inherited scores for newer versions or unmeasured Codex tiers. No live benchmark scraping.",
+  "metrics": {
+    "swe_verified": {
+      "axis": "coding",
+      "source": "https://www.anthropic.com/news/claude-opus-4-5",
+      "values": {
+        "claude-opus-4-5": 80.9,
+        "gemini-3-flash": 78
+      },
+      "additional_source": "https://blog.google/products-and-platforms/products/gemini/gemini-3-flash/"
+    },
+    "cursorbench_3_2": {
+      "axis": "coding",
+      "values": {
+        "claude-fable-5-1": 73.4,
+        "claude-opus-5": 70,
+        "gpt-5-6-sol": 67.2
+      },
+      "source": "https://www.anthropic.com/claude/fable"
+    },
+    "automationbench": {
+      "axis": "agents",
+      "values": {
+        "claude-fable-5-1": 31.4,
+        "claude-opus-5": 26.9,
+        "gpt-5-6-sol": 19.6
+      },
+      "source": "https://www.anthropic.com/claude/fable"
+    },
+    "hle_no_tools": {
+      "axis": "general",
+      "values": {
+        "claude-fable-5-1": 60.9,
+        "claude-opus-5": 56.6
+      },
+      "source": "https://www.anthropic.com/claude/fable"
+    },
+    "terminal_bench_science_0_1": {
+      "axis": "scientific",
+      "values": {
+        "claude-fable-5-1": 52.6,
+        "claude-opus-5": 29,
+        "gpt-5-6-sol": 22.4
+      },
+      "source": "https://www.anthropic.com/claude/fable"
+    },
+    "gpqa_diamond": {
+      "axis": "scientific",
+      "source": "https://www.anthropic.com/news/claude-opus-4-5",
+      "additional_source": "https://blog.google/products-and-platforms/products/gemini/gemini-3-flash/",
+      "values": {
+        "claude-opus-4-5": 87,
+        "gemini-3-flash": 90.4
+      }
+    },
+    "gdpval_aa_v2": {
+      "axis": "writing",
+      "values": {
+        "claude-fable-5-1": 1853,
+        "claude-opus-5": 1824,
+        "gpt-5-6-sol": 1711
+      },
+      "source": "https://www.anthropic.com/claude/fable"
+    }
+  }
+}

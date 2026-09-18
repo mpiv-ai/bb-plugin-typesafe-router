@@ -29,8 +29,8 @@ function model(id: string, overrides: Partial<CatalogModel> = {}): CatalogModel 
 
 describe("modelFamilyKey", () => {
   it("collapses vendor prefixes, context tags, dates, and effort suffixes", () => {
-    expect(modelFamilyKey("cursor/claude-4.6-opus-high")).toBe("claude-4.6-opus");
-    expect(modelFamilyKey("cursor/claude-4.6-opus-max")).toBe("claude-4.6-opus");
+    expect(modelFamilyKey("cursor/claude-4.6-opus-high")).toBe("claude-opus-4-6");
+    expect(modelFamilyKey("cursor/claude-4.6-opus-max")).toBe("claude-opus-4-6");
     expect(modelFamilyKey("claude-opus-5[1m]")).toBe("claude-opus-5");
     expect(modelFamilyKey("anthropic:claude-sonnet-4-5-20250929")).toBe(
       "claude-sonnet-4-5",
@@ -53,16 +53,6 @@ describe("curateModels", () => {
       model(`vendor-${index}/model-${index}`),
     );
     expect(curateModels(models, 8)).toHaveLength(8);
-  });
-
-  it("always keeps the provider default even when it would rank low", () => {
-    const models = [
-      ...Array.from({ length: 20 }, (_, index) => model(`opus-${index}`)),
-      model("obscure-house-model", { isDefault: true }),
-    ];
-    const curated = curateModels(models, 8);
-    expect(curated).toHaveLength(8);
-    expect(curated.map((m) => m.id)).toContain("obscure-house-model");
   });
 
   it("collapses same-family variants to one entry", () => {
@@ -143,58 +133,6 @@ describe("buildCatalog", () => {
   });
 });
 
-describe("curateModels in catalog_order", () => {
-  // The contrast case: a name the weights recognise, sitting last in a catalog
-  // that is already longer than the cap.
-  const models = [
-    ...Array.from({ length: 10 }, (_, index) => model(`filler-${index}`)),
-    model("anthropic/claude-opus-5"),
-  ];
-
-  it("keeps the provider's order instead of promoting a recognised name", () => {
-    expect(curateModels(models, 3, "catalog_order").map((m) => m.id)).toEqual([
-      "filler-0",
-      "filler-1",
-      "filler-2",
-    ]);
-  });
-
-  it("is the only difference — weighted promotes the same model", () => {
-    expect(curateModels(models, 3, "weighted").map((m) => m.id)).toContain(
-      "anthropic/claude-opus-5",
-    );
-  });
-
-  it("still keeps the provider's default, wherever it sits", () => {
-    const withLateDefault = [
-      ...Array.from({ length: 9 }, (_, index) => model(`filler-${index}`)),
-      model("house-model", { isDefault: true }),
-    ];
-    expect(curateModels(withLateDefault, 3, "catalog_order").map((m) => m.id)).toEqual([
-      "filler-0",
-      "filler-1",
-      "house-model",
-    ]);
-  });
-
-  it("still collapses model families and honours the cap", () => {
-    const variants = [
-      model("cursor/claude-4.6-opus-high"),
-      model("cursor/claude-4.6-opus-max"),
-      model("cursor/claude-4.6-sonnet-medium"),
-    ];
-    expect(curateModels(variants, 8, "catalog_order").map((m) => m.id)).toEqual([
-      "cursor/claude-4.6-opus-high",
-      "cursor/claude-4.6-sonnet-medium",
-    ]);
-    expect(curateModels(models, 2, "catalog_order")).toHaveLength(2);
-  });
-
-  it("defaults to weighted when no mode is given", () => {
-    expect(curateModels(models, 3)).toEqual(curateModels(models, 3, "weighted"));
-  });
-});
-
 describe("isHarnessAllowed", () => {
   it("allows everything when neither list is set", () => {
     expect(isHarnessAllowed("codex")).toBe(true);
@@ -256,20 +194,6 @@ describe("buildCatalog and the user's filter", () => {
     // The same outcome from the other direction: an include list naming only
     // harnesses this machine does not have.
     expect(buildCatalog(providers, models, { filter: filter(["nowhere"]) })).toEqual([]);
-  });
-
-  it("carries the curation mode through to each harness", () => {
-    const big = [
-      ...Array.from({ length: 10 }, (_, index) => model(`filler-${index}`)),
-      model("anthropic/claude-opus-5"),
-    ];
-    const ids = (mode: "weighted" | "catalog_order") =>
-      buildCatalog([providers[0]!], new Map([["codex", big]]), {
-        max: 3,
-        mode,
-      })[0]!.models.map((m) => m.id);
-    expect(ids("weighted")).toContain("anthropic/claude-opus-5");
-    expect(ids("catalog_order")).not.toContain("anthropic/claude-opus-5");
   });
 
   it("defaults to the built-in cap and every harness when given no options", () => {

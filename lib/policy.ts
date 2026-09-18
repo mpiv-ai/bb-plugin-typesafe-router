@@ -118,6 +118,9 @@ function decide(input: PolicyInput): PolicyDecision {
       case "confirmed":
         return { action: "proceed", why: "confirmed" };
       case "skipped":
+        if (routing.detail === "every available harness is switched off in this plugin's settings") {
+          return { action: "reject", message: routing.detail };
+        }
         return { action: "proceed", why: `skipped: ${routing.detail ?? "user declined"}` };
       case "failed":
         return { action: "proceed", why: `failed: ${routing.detail ?? "routing error"}` };

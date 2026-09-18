@@ -54,85 +54,51 @@ thread starts, the harness is locked; the model can still be changed normally.
 
 ## Configuration
 
-Everything is on the plugin's own page: **Settings → Tools → TypeSafe Router**.
-The declared settings render there as a form, and above them a **Routing
-preferences** section lists the harnesses *this machine actually has* as
-switches, so narrowing the choice never means typing a provider id.
+Open **Settings → Tools → TypeSafe Router**. The automatic form contains only
+`typesafeApiKey` (secret). The custom section contains one Route first messages
+switch and the live harness switches. Routing is enabled by default.
 
-| Setting | Type | Default | What it does |
-| --- | --- | --- | --- |
-| `typesafeApiKey` | secret string | *(unset)* | Key for the two Choice calls. Without it nothing is routed. |
-| `enabled` | boolean | `true` | Off leaves every thread on the harness it was created with. |
-| `maxModelsPerHarness` | number, 2–16 | `8` | How many models from each harness Jev chooses between. |
-| `curationMode` | `weighted` \| `catalog_order` | `weighted` | How an oversized harness is trimmed. |
-| `includeHarnesses` | multiline | `""` | One provider id per line. Empty means every available harness. |
-| `excludeHarnesses` | multiline | `""` | One provider id per line, applied *after* the include list. |
+Preferences are stored in `bb.storage.kv` and apply on the next first message.
+The former `enabled`, `includeHarnesses`, `excludeHarnesses`,
+`maxModelsPerHarness`, and `curationMode` settings are migrated once. Include
+and exclude restrictions are preserved; the old cap and mode are archived but
+ignored. Exclude wins over include. An empty result never calls TypeSafe and
+rejects the held first message. The router stub is never a candidate.
 
-The same values from a shell — quote anything with spaces or newlines:
+BB SDK 0.4.87 cannot read undeclared settings. The migration uses
+`bb.server.experimental_dataDir` to open `bb.db` read-only and selects only
+this plugin's five non-secret preference keys from `plugin_settings`. It never
+reads key material or writes core tables. If migration fails, loading fails
+without recording completion, so an upgrade cannot silently widen exclusions.
+Subsequent reads and writes use plugin storage only. This migration depends on
+the BB table schema and is covered with a temporary SQLite fixture.
 
-```
-bb plugin config typesafe-router                                    # show all
-bb plugin config typesafe-router set typesafeApiKey 'YOUR_KEY'      # secret
-bb plugin config typesafe-router set enabled false                  # stop routing
-bb plugin config typesafe-router set maxModelsPerHarness 4
-bb plugin config typesafe-router set curationMode 'catalog_order'
-bb plugin config typesafe-router set excludeHarnesses 'acp-omp'
-bb plugin config typesafe-router set includeHarnesses 'codex
-claude-code'
-```
+### Capability knowledge and model shortlist
 
-The page and `bb plugin config` are one source of truth: both read and write the
-same stored settings, and the routing pass re-reads them on every message. **No
-reload is needed** for any of these — a change applies to the next first message
-you send. (Reload is only relevant for the `needs-configuration` status banner,
-which is computed once at load, and for the picker row's registration, which
-these settings do not touch.)
+The router classifies the truncated first message locally as coding, agents,
+general, scientific, writing, or mixed. Unknown or tied signals use mixed.
+It collapses family aliases, ranks by that axis, then offers at most eight
+models per harness. Unmeasured models retain catalog order after scored models;
+the default wins only when choosing among aliases of the same family.
 
-### Which harnesses Jev may choose from
+`datasets/axis-scores.json` vendors public benchmark results with sources and
+a capture date. Scores are percentiles within each benchmark cohort, averaged
+per axis. Mixed averages the available axes. GDPval-AA knowledge work is the
+writing/office-work proxy; AutomationBench supplies the agents/ops axis.
+These small, heterogeneous cohorts are routing evidence, not a universal model
+leaderboard. Missing results are null and newer families do not inherit an
+older version's numbers. No benchmark is fetched during routing.
 
-`includeHarnesses` is the allow-list and `excludeHarnesses` is applied after it,
-so a harness named in both is off. Blank lines are ignored and `#` starts a
-comment:
-
-```
-# only the two I trust for a cold start
-codex
-claude-code   # opus is worth it on ambiguous work
-```
-
-Ids are the provider ids BB uses (`codex`, `acp-omp`, `claude-code`); an id that
-matches nothing on the machine is skipped, not an error. The TypeSafe Router
-picker row is excluded unconditionally and cannot be included by naming it.
-Switching a harness off on the settings page writes it to `excludeHarnesses`,
-which rewrites that list — hand-written comments in it are not preserved.
-
-**If filtering leaves nothing routable, the plugin fails closed**: it does not
-call TypeSafe, and a first message on the picker row is rejected with an
-explanation instead of hanging on the wait card.
-
-### How an oversized harness is trimmed
-
-One harness can publish 800+ models; a Choice call cannot usefully be asked
-about that many, so each harness is cut to `maxModelsPerHarness`. Both modes cap
-the list, collapse model families (`…-opus-high` and `…-opus-max` are one
-choice), and always keep the provider's own default.
-
-- `weighted` (**Built-in name weights**) — rank by this plugin's name weights,
-  so recognised models survive the cut and obvious previews and embeddings do
-  not.
-- `catalog_order` (**Keep the provider's order**) — boost nothing; cut at the
-  provider's published order. Use this when you trust your provider's ranking
-  more than a name table this plugin shipped.
-
-Removing the plugin removes the picker row with it. Threads that were already
-routed keep running, because they run on a real harness.
+Both Choice calls receive authored `what`, `not_for`, `tools`, and `examples`
+from `datasets/capability-cards.json`. Unknown cards say capabilities are
+unverified. Tools depend on the installed harness configuration. There are
+still exactly two serial Choice calls, followed by **Yep**.
 
 ## Privacy
 
 Only the first message's text is sent to TypeSafe, truncated to 4000
-characters, along with the project name and the **names and descriptions** of
-the harnesses and models being chosen between — BB catalog strings, not your
-content. The repository, the timeline, and later messages are not sent.
+characters, along with the project name and the live names/descriptions, authored capability cards, and snapshot ranks
+of the candidate harnesses and models. The repository, the timeline, and later messages are not sent.
 
 ## Troubleshooting
 
@@ -177,7 +143,7 @@ hook itself only reads cheap state and answers. It holds the first message with
 1. Read this machine's live catalogs (`bb.sdk.providers.list` / `.models` for
    the thread's host — catalogs differ per machine, and one harness can offer
    800+ models). Drop the harnesses your settings exclude, then curate each
-   survivor to at most `maxModelsPerHarness` models. The catalogs themselves are
+   survivor to at most eight models for the locally classified task axis. The catalogs themselves are
    always fetched live; the settings only trim what Jev is shown.
 2. Two sequential TypeSafe Choice calls: **which harness**, then **which model
    inside that harness**. Hierarchical, because those are two different
@@ -203,7 +169,7 @@ harness instead.
   refusal for `turn/start`.
 - `host.ts` — the `bb.host` artifact, which exists only to carry that bridge.
 - `lib/catalog.ts` — curation and the harness filter. Pure; no network.
-- `lib/preferences.ts` — settings text (harness lists, curation mode, caps)
+- `lib/preferences.ts` — stored harness lists
   parsed into the decisions routing makes. Pure.
 - `lib/policy.ts` — what to intercept and what to answer on a re-attempt. Pure.
 - `lib/router.ts` — the two Choice calls, against an injectable client.

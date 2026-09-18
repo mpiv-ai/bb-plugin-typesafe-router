@@ -24,13 +24,10 @@ blocks nothing on a thread that already has a real harness.
 **Tuning it.** The plugin's page under Settings has a **Routing preferences**
 section that lists the harnesses this machine actually has as switches — turn
 one off and it stops being offered, without typing a provider id anywhere. The
-same section sets how many models per harness Jev chooses between (2 to 16,
-default 8) and whether an oversized harness is trimmed by the built-in name
-weights or simply cut at the provider's own order. Catalogs stay live either
-way: the settings only filter what Jev is shown, and every change applies to the
-next message without a reload. If the filters leave nothing routable, the plugin
-says so and refuses rather than routing a thread onto a harness that cannot run
-it. `bb plugin config typesafe-router` reads and writes exactly the same values.
+section has only a routing switch and live harness switches. The automatic
+form contains only the secret API key. Models are ranked by a local task-axis
+classifier and a vendored public-eval snapshot, capped at eight. Capability
+cards describe the candidates in both TypeSafe calls.
 
 **Requirements.** BB `>= 0.43` with Plugin SDK `>= 0.4.87`, a TypeSafe API key
 from <https://console.typesafe.ai> (this plugin ships no key), and at least one

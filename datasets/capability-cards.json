@@ -5,7 +5,7 @@
     "cheap": "Fast, low-cost model for lookups, rewrites, and single-step asks.",
     "mid": "Balanced model for multi-step work, light research, and file edits.",
     "frontier": "Highest-capability model for ambiguous, high-stakes, or long-horizon work.",
-    "unassigned": "No band: this family's name matches no pricing heuristic we can defend."
+    "unassigned": "No authored relative tier for this family; do not infer a price."
   },
   "harnesses": [
     {
@@ -13,17 +13,18 @@
       "display_name": "Codex",
       "what": "OpenAI's Codex CLI in a sandboxed shell. It reads and patches files, runs builds and tests, and iterates against real command output. Strongest when the task is a precise change to code that already exists and there is a pass/fail signal to iterate against.",
       "not_for": [
-        "Work that depends on MCP servers, skills, or delegated subagents — it has none.",
-        "Open-ended web research; there is no first-class browsing loop.",
-        "Driving a browser or judging a rendered UI."
+        "Unattended work requiring permissions or integrations that are not enabled.",
+        "Persistent background responsibilities without an external scheduler."
       ],
       "tools": [
         "sandboxed shell",
         "file read and patch",
         "build and test execution",
-        "git"
+        "git",
+        "MCP and skills when configured",
+        "delegated agents and web tools when available"
       ],
-      "context": "Terminal only, network-restricted sandbox by default, with approvals gating escalation. Five OpenAI models, all frontier-or-near.",
+      "context": "Available tools, network access, and approvals depend on the installed harness configuration.",
       "examples": [
         "Fix the failing assertion in `parser.test.ts` and keep the rest of the suite green.",
         "Apply this 40-line diff across six call sites and run the type checker.",
@@ -35,10 +36,10 @@
     {
       "id": "claude-code",
       "display_name": "Claude Code",
-      "what": "Anthropic's Claude Code CLI, with the widest tool surface of any harness here: MCP servers, skills, hooks, background tasks, delegated subagents, web fetch and search, and a plan mode for designing before editing. Choose it when the work is ambiguous, spans many files, or needs a tool no other harness carries.",
+      "what": "An agent harness for repository changes, research, and multi-step work. Supports MCP servers, skills, hooks, delegated agents, and web tools when enabled.",
       "not_for": [
         "A one-line lookup, where its startup and context cost dominates the work.",
-        "Reaching a non-Anthropic model — it carries Anthropic models only."
+        "Reaching a non-Anthropic model \u2014 it carries Anthropic models only."
       ],
       "tools": [
         "MCP servers",
@@ -62,20 +63,20 @@
     {
       "id": "pi",
       "display_name": "Pi",
-      "what": "An aggregator harness fronting a few hundred models across the Codex and OpenRouter namespaces behind one agent loop. The reason to pick it is the model, not the tooling: comparing vendors, or reaching a specific third-party model by name.",
+      "what": "An extensible agent harness for shell work, file edits, research, and cross-vendor model selection. Its installed extensions determine additional integrations.",
       "not_for": [
-        "Work whose difficulty is tooling rather than model choice.",
-        "Anything that leans on harness-specific features such as skills or hooks."
+        "Tasks requiring an integration that has not been installed or authorized."
       ],
       "tools": [
         "shell",
         "file edit",
-        "cross-vendor model selection"
+        "cross-vendor model selection",
+        "skills and extensions when configured"
       ],
       "context": "402 models on this machine under the `openai-codex/` and `openrouter/` prefixes. Descriptions are sparse, so the model names are most of what routing gets.",
       "examples": [
         "Run this same prompt against a Gemini model and an OpenAI model and diff the answers.",
-        "Use DeepSeek for this — I want to see how it handles the algorithm.",
+        "Use DeepSeek for this \u2014 I want to see how it handles the algorithm.",
         "Which open-weight model can summarize this transcript acceptably for a tenth the cost?"
       ],
       "cost_band": null
@@ -99,27 +100,27 @@
       "examples": [
         "Rename this symbol everywhere in the open project and fix the imports.",
         "Where in this codebase do we already do something like this?",
-        "Tighten up the component I have open — same behavior, less code."
+        "Tighten up the component I have open \u2014 same behavior, less code."
       ],
       "cost_band": null
     },
     {
       "id": "acp-omp",
       "display_name": "omp",
-      "what": "omp over ACP, the broadest model aggregator available: hundreds of models across the Cursor, Codex, OpenRouter, and xAI namespaces under one agent loop. The reason to choose it is reach — a model that no other harness carries.",
+      "what": "An extensible agent harness for shell work, file edits, research, and cross-vendor model selection. Its installed extensions determine additional integrations.",
       "not_for": [
-        "Work that needs a specific harness feature; omp routes models, it is not a tool platform.",
-        "Cases where you cannot name the model you want — the catalog is far too large to browse."
+        "Tasks requiring an integration that has not been installed or authorized."
       ],
       "tools": [
         "shell",
         "file edit",
-        "cross-vendor model selection"
+        "cross-vendor model selection",
+        "skills and extensions when configured"
       ],
-      "context": "666 models on this machine, collapsing to 442 families — and every single description is empty. That emptiness is the gap these cards exist to fill.",
+      "context": "666 models on this machine, collapsing to 442 families \u2014 and every single description is empty. That emptiness is the gap these cards exist to fill.",
       "examples": [
         "Use Qwen for this one; I want a non-US-vendor model on it.",
-        "I need `cursor/composer-2.5` specifically — route me there.",
+        "I need `cursor/composer-2.5` specifically \u2014 route me there.",
         "Try the cheapest model that can still get this refactor right, whoever makes it."
       ],
       "cost_band": null
@@ -148,7 +149,7 @@
     {
       "id": "acp-hermes-agent",
       "display_name": "Hermes Agent",
-      "what": "Hermes Agent over ACP: a persistent agent that carries state across sessions instead of starting fresh each thread. Choose it for a standing responsibility — something monitored, revisited, or handed forward — rather than for a single edit.",
+      "what": "Hermes Agent over ACP: a persistent agent that carries state across sessions instead of starting fresh each thread. Choose it for a standing responsibility \u2014 something monitored, revisited, or handed forward \u2014 rather than for a single edit.",
       "not_for": [
         "A quick one-off change; the persistence is overhead with no payoff.",
         "Throwaway experiments you would rather it did not remember."
@@ -176,7 +177,7 @@
       "cost_band": "frontier",
       "what": "OpenAI's current flagship. The strongest general reasoner in this catalog for long-horizon agentic coding: holds a large plan across many tool calls without drifting.",
       "not_for": [
-        "Lookups, renames, and single-file edits — the capability is wasted and the bill is not.",
+        "Lookups, renames, and single-file edits \u2014 the capability is wasted and the bill is not.",
         "High-volume batch work where per-call cost compounds."
       ],
       "tools": [
@@ -190,10 +191,10 @@
         "Work this ambiguous bug report down to a root cause and a fix."
       ],
       "reachable_from": [
-        "codex",
-        "pi",
+        "acp-hermes-agent",
         "acp-omp",
-        "acp-hermes-agent"
+        "codex",
+        "pi"
       ],
       "shortlisted_on": [
         "codex",
@@ -202,9 +203,9 @@
       ]
     },
     {
-      "family_key": "gpt-5.6-sol",
+      "family_key": "gpt-5-6-sol",
       "label": "GPT-5.6-Sol",
-      "cost_band": "unassigned",
+      "cost_band": "frontier",
       "what": "The reasoning-leaning member of the GPT-5.6 trio. Slower and more deliberate than its siblings; a reasonable step down from the flagship when the work is hard but bounded.",
       "not_for": [
         "Latency-sensitive interactive turns.",
@@ -221,19 +222,19 @@
         "Design the schema migration and justify the ordering."
       ],
       "reachable_from": [
-        "codex",
-        "pi",
+        "acp-hermes-agent",
         "acp-omp",
-        "acp-hermes-agent"
+        "codex",
+        "pi"
       ],
       "shortlisted_on": [
         "codex"
       ]
     },
     {
-      "family_key": "gpt-5.6-terra",
+      "family_key": "gpt-5-6-terra",
       "label": "GPT-5.6-Terra",
-      "cost_band": "unassigned",
+      "cost_band": "mid",
       "what": "The throughput-leaning member of the GPT-5.6 trio. Built for steady mechanical work across many files rather than for a single hard judgement.",
       "not_for": [
         "Ambiguous design questions with no clear success criterion."
@@ -243,25 +244,25 @@
         "code generation",
         "shell iteration"
       ],
-      "context": "Codex only in the captured shortlist. Band unassigned — the name carries no pricing signal we can read.",
+      "context": "Codex only in the captured shortlist. Band unassigned \u2014 the name carries no pricing signal we can read.",
       "examples": [
         "Apply this lint rule fix across all 200 violations.",
         "Convert every test in this directory to the new helper."
       ],
       "reachable_from": [
-        "codex",
-        "pi",
+        "acp-hermes-agent",
         "acp-omp",
-        "acp-hermes-agent"
+        "codex",
+        "pi"
       ],
       "shortlisted_on": [
         "codex"
       ]
     },
     {
-      "family_key": "gpt-5.6-luna",
+      "family_key": "gpt-5-6-luna",
       "label": "GPT-5.6-Luna",
-      "cost_band": "unassigned",
+      "cost_band": "cheap",
       "what": "The latency-leaning member of the GPT-5.6 trio. Fast interactive turns at the cost of depth; the one to reach for when the loop is conversational.",
       "not_for": [
         "Long autonomous runs.",
@@ -272,23 +273,23 @@
         "code completion",
         "short edits"
       ],
-      "context": "Codex only in the captured shortlist. Band unassigned.",
+      "context": "Codex only in the captured shortlist. Band is an authored relative tier, not a current price quote.",
       "examples": [
         "Walk me through what this function does, then tweak the edge case.",
         "Quick pass on this PR description."
       ],
       "reachable_from": [
-        "codex",
-        "pi",
+        "acp-hermes-agent",
         "acp-omp",
-        "acp-hermes-agent"
+        "codex",
+        "pi"
       ],
       "shortlisted_on": [
         "codex"
       ]
     },
     {
-      "family_key": "gpt-5.5",
+      "family_key": "gpt-5-5",
       "label": "GPT-5.5",
       "cost_band": "unassigned",
       "what": "The previous-generation general model. Still competent across ordinary implementation work and widely available, which makes it a safe fallback when a newer family is not offered.",
@@ -301,16 +302,16 @@
         "shell iteration",
         "structured output"
       ],
-      "context": "Default model on Pi; also in Codex's shortlist. Band unassigned.",
+      "context": "Default model on Pi; also in Codex's shortlist. Band is an authored relative tier, not a current price quote.",
       "examples": [
         "Implement this endpoint against the spec in the issue.",
         "Add retry and backoff to this client."
       ],
       "reachable_from": [
-        "codex",
-        "pi",
+        "acp-hermes-agent",
         "acp-omp",
-        "acp-hermes-agent"
+        "codex",
+        "pi"
       ],
       "shortlisted_on": [
         "codex",
@@ -318,9 +319,9 @@
       ]
     },
     {
-      "family_key": "gpt-5.6-sol-900k",
+      "family_key": "gpt-5-6-sol-900k",
       "label": "GPT-5.6-Sol (900k context)",
-      "cost_band": "unassigned",
+      "cost_band": "frontier",
       "what": "GPT-5.6-Sol with a 900k-token window. The distinguishing feature is the context, not the reasoning: it is the family to pick when the whole corpus must be in the prompt at once.",
       "not_for": [
         "Short prompts, where the long-context premium buys nothing."
@@ -330,7 +331,7 @@
         "extended reasoning",
         "code generation"
       ],
-      "context": "Hermes Agent's default. The `-900k` suffix survives family collapse, so this is a distinct family from `gpt-5.6-sol`. Band unassigned.",
+      "context": "Hermes Agent's default. The `-900k` suffix survives family collapse, so this is a distinct family from `gpt-5.6-sol`. Band is an authored relative tier, not a current price quote.",
       "examples": [
         "Read all 40 of these transcripts and find the contradictions.",
         "Hold the entire service in context and trace this request end to end."
@@ -348,7 +349,7 @@
       "cost_band": "frontier",
       "what": "Anthropic's writing- and judgement-leaning frontier family. Best in this catalog for prose, review, and calls that hinge on taste rather than on passing a test.",
       "not_for": [
-        "Lookups, renames, and single-file edits — the capability is wasted and the bill is not.",
+        "Lookups, renames, and single-file edits \u2014 the capability is wasted and the bill is not.",
         "High-volume batch work where per-call cost compounds.",
         "Tight mechanical loops where a cheaper model measurably matches it."
       ],
@@ -363,9 +364,10 @@
         "Rewrite this README so a new contributor can follow it."
       ],
       "reachable_from": [
-        "claude-code",
+        "acp-hermes-agent",
         "acp-omp",
-        "acp-hermes-agent"
+        "claude-code",
+        "pi"
       ],
       "shortlisted_on": [
         "claude-code"
@@ -375,9 +377,9 @@
       "family_key": "claude-opus-5",
       "label": "Claude Opus 5",
       "cost_band": "frontier",
-      "what": "Anthropic's current flagship. The strongest option here for ambiguous, high-stakes, long-horizon agentic work — the cases where being wrong is expensive and the path is not laid out.",
+      "what": "Anthropic's current flagship. The strongest option here for ambiguous, high-stakes, long-horizon agentic work \u2014 the cases where being wrong is expensive and the path is not laid out.",
       "not_for": [
-        "Lookups, renames, and single-file edits — the capability is wasted and the bill is not.",
+        "Lookups, renames, and single-file edits \u2014 the capability is wasted and the bill is not.",
         "High-volume batch work where per-call cost compounds."
       ],
       "tools": [
@@ -392,10 +394,10 @@
         "Own this incident: find the cause, fix it, and prove the fix."
       ],
       "reachable_from": [
-        "claude-code",
-        "pi",
+        "acp-hermes-agent",
         "acp-omp",
-        "acp-hermes-agent"
+        "claude-code",
+        "pi"
       ],
       "shortlisted_on": [
         "claude-code",
@@ -408,7 +410,7 @@
       "cost_band": "frontier",
       "what": "The prior Opus generation. Close to current-flagship quality on most coding work and worth naming when a thread needs continuity with earlier runs on the same family.",
       "not_for": [
-        "Lookups, renames, and single-file edits — the capability is wasted and the bill is not.",
+        "Lookups, renames, and single-file edits \u2014 the capability is wasted and the bill is not.",
         "High-volume batch work where per-call cost compounds."
       ],
       "tools": [
@@ -422,9 +424,10 @@
         "Hard multi-file change with no test coverage to lean on."
       ],
       "reachable_from": [
-        "claude-code",
+        "acp-hermes-agent",
         "acp-omp",
-        "acp-hermes-agent"
+        "claude-code",
+        "pi"
       ],
       "shortlisted_on": [
         "claude-code",
@@ -437,7 +440,7 @@
       "cost_band": "frontier",
       "what": "An older Opus generation, kept available for reproducibility. Pick it deliberately, to match a previous run, rather than on capability grounds.",
       "not_for": [
-        "Lookups, renames, and single-file edits — the capability is wasted and the bill is not.",
+        "Lookups, renames, and single-file edits \u2014 the capability is wasted and the bill is not.",
         "High-volume batch work where per-call cost compounds.",
         "New work, where a newer Opus is strictly better."
       ],
@@ -451,9 +454,10 @@
         "Re-run this eval on the older Opus for comparison."
       ],
       "reachable_from": [
-        "claude-code",
+        "acp-hermes-agent",
         "acp-omp",
-        "acp-hermes-agent"
+        "claude-code",
+        "pi"
       ],
       "shortlisted_on": [
         "claude-code",
@@ -466,7 +470,7 @@
       "cost_band": "frontier",
       "what": "An older Opus generation retained by Hermes. Reproducibility only.",
       "not_for": [
-        "Lookups, renames, and single-file edits — the capability is wasted and the bill is not.",
+        "Lookups, renames, and single-file edits \u2014 the capability is wasted and the bill is not.",
         "High-volume batch work where per-call cost compounds.",
         "New work."
       ],
@@ -480,7 +484,9 @@
         "Match the behavior of the agent we shipped on 4.6."
       ],
       "reachable_from": [
-        "acp-hermes-agent"
+        "acp-hermes-agent",
+        "acp-omp",
+        "pi"
       ],
       "shortlisted_on": [
         "acp-hermes-agent"
@@ -492,7 +498,7 @@
       "cost_band": "frontier",
       "what": "An older Opus generation retained by Hermes. Reproducibility only.",
       "not_for": [
-        "Lookups, renames, and single-file edits — the capability is wasted and the bill is not.",
+        "Lookups, renames, and single-file edits \u2014 the capability is wasted and the bill is not.",
         "High-volume batch work where per-call cost compounds.",
         "New work."
       ],
@@ -506,7 +512,9 @@
         "Check whether this regression predates 4.6."
       ],
       "reachable_from": [
-        "acp-hermes-agent"
+        "acp-hermes-agent",
+        "acp-omp",
+        "pi"
       ],
       "shortlisted_on": [
         "acp-hermes-agent"
@@ -518,7 +526,7 @@
       "cost_band": "frontier",
       "what": "The original Opus 4. Well below current families on agentic coding; present for historical comparison and for third-party catalogs that have not refreshed.",
       "not_for": [
-        "Lookups, renames, and single-file edits — the capability is wasted and the bill is not.",
+        "Lookups, renames, and single-file edits \u2014 the capability is wasted and the bill is not.",
         "High-volume batch work where per-call cost compounds.",
         "Any new work where a later Opus is offered."
       ],
@@ -532,9 +540,9 @@
         "Confirm the behavior difference between Opus 4 and Opus 5 here."
       ],
       "reachable_from": [
-        "pi",
+        "acp-hermes-agent",
         "acp-omp",
-        "acp-hermes-agent"
+        "pi"
       ],
       "shortlisted_on": [
         "pi",
@@ -562,10 +570,10 @@
         "Wire this new config option through the three places that read it."
       ],
       "reachable_from": [
-        "claude-code",
-        "pi",
+        "acp-hermes-agent",
         "acp-omp",
-        "acp-hermes-agent"
+        "claude-code",
+        "pi"
       ],
       "shortlisted_on": [
         "claude-code"
@@ -575,7 +583,7 @@
       "family_key": "claude-haiku-4-5",
       "label": "Claude Haiku 4.5",
       "cost_band": "cheap",
-      "what": "Anthropic's fast, cheap family. Genuinely capable on bounded single-step work — extraction, classification, mechanical rewrites — at a fraction of the cost of the tiers above it.",
+      "what": "Anthropic's fast, cheap family. Genuinely capable on bounded single-step work \u2014 extraction, classification, mechanical rewrites \u2014 at a fraction of the cost of the tiers above it.",
       "not_for": [
         "Multi-step agentic work.",
         "Anything requiring sustained reasoning or design judgement."
@@ -585,43 +593,20 @@
         "extraction and classification",
         "short edits"
       ],
-      "context": "Claude Code's cheap option and the only sub-mid Anthropic family in that harness's shortlist. Pi carries a dotted `claude-haiku-4.5`, which collapses to a different family key — see the README.",
+      "context": "Dotted and hyphenated version spellings share this family. Availability comes from the live provider catalog.",
       "examples": [
         "Pull the version numbers out of this changelog into a table.",
         "Fix the typo in the error string."
       ],
       "reachable_from": [
+        "acp-hermes-agent",
+        "acp-omp",
         "claude-code",
-        "acp-hermes-agent"
+        "pi"
       ],
       "shortlisted_on": [
         "claude-code"
       ]
-    },
-    {
-      "family_key": "claude-4.6-opus",
-      "label": "Claude Opus 4.6 (Cursor build)",
-      "cost_band": "frontier",
-      "what": "Cursor's own packaging of Opus 4.6, exposed with effort suffixes (`-high`, `-max`) that collapse into one family. Frontier reasoning delivered through Cursor's editor context rather than a bare shell.",
-      "not_for": [
-        "Lookups, renames, and single-file edits — the capability is wasted and the bill is not.",
-        "High-volume batch work where per-call cost compounds.",
-        "Headless runs with no editor attached."
-      ],
-      "tools": [
-        "Cursor codebase index",
-        "long agentic tool-call chains",
-        "multi-file edit"
-      ],
-      "context": "Reachable only through omp's `cursor/` namespace in the captured snapshot: the Cursor harness itself reported no models. It does NOT survive omp's 8-slot shortlist — see the README.",
-      "examples": [
-        "Hard architectural change, with the whole indexed project in play.",
-        "Untangle this dependency cycle across the open workspace."
-      ],
-      "reachable_from": [
-        "acp-omp"
-      ],
-      "shortlisted_on": []
     },
     {
       "family_key": "gemini-3-flash",
@@ -650,27 +635,27 @@
       ]
     },
     {
-      "family_key": "gemini-3.5-flash",
+      "family_key": "gemini-3-5-flash",
       "label": "Gemini 3.5 Flash",
       "cost_band": "cheap",
       "what": "A point revision of the Gemini Flash line. Same cheap-and-fast profile as its siblings; the version number is the only thing distinguishing it at routing time.",
       "not_for": [
         "Multi-step agentic coding.",
-        "Anything where the version difference from a neighbouring Flash actually matters — it rarely does."
+        "Anything where the version difference from a neighbouring Flash actually matters \u2014 it rarely does."
       ],
       "tools": [
         "high-throughput single-step turns",
         "long context",
         "summarization and extraction"
       ],
-      "context": "In both Pi's and omp's shortlists. Five near-identical Flash families crowd those shortlists — see the README.",
+      "context": "In both Pi's and omp's shortlists. Five near-identical Flash families crowd those shortlists \u2014 see the README.",
       "examples": [
         "Turn this transcript into bullet points.",
         "Extract every TODO comment in the repo into a list."
       ],
       "reachable_from": [
-        "pi",
-        "acp-omp"
+        "acp-omp",
+        "pi"
       ],
       "shortlisted_on": [
         "pi",
@@ -678,7 +663,7 @@
       ]
     },
     {
-      "family_key": "gemini-3.6-flash",
+      "family_key": "gemini-3-6-flash",
       "label": "Gemini 3.6 Flash",
       "cost_band": "cheap",
       "what": "A point revision of the Gemini Flash line. Cheap, fast, long-context; indistinguishable from its neighbours for routing purposes.",
@@ -697,8 +682,8 @@
         "Diff these two config dumps and tell me what changed."
       ],
       "reachable_from": [
-        "pi",
-        "acp-omp"
+        "acp-omp",
+        "pi"
       ],
       "shortlisted_on": [
         "pi",
@@ -706,7 +691,7 @@
       ]
     },
     {
-      "family_key": "gemini-3.7-flash",
+      "family_key": "gemini-3-7-flash",
       "label": "Gemini 3.7 Flash",
       "cost_band": "cheap",
       "what": "A point revision of the Gemini Flash line. Cheap, fast, long-context; the routing-relevant profile is identical to the other Flash families.",
@@ -725,8 +710,8 @@
         "Condense this 200-page spec into a one-page brief."
       ],
       "reachable_from": [
-        "pi",
-        "acp-omp"
+        "acp-omp",
+        "pi"
       ],
       "shortlisted_on": [
         "pi",
@@ -734,7 +719,7 @@
       ]
     },
     {
-      "family_key": "gemini-3.8-flash",
+      "family_key": "gemini-3-8-flash",
       "label": "Gemini 3.8 Flash",
       "cost_band": "cheap",
       "what": "The newest Gemini Flash point revision here. Cheap and fast; the one to prefer among the Flash families purely because it is latest.",
@@ -753,8 +738,8 @@
         "Summarize what each file in this directory is for."
       ],
       "reachable_from": [
-        "pi",
-        "acp-omp"
+        "acp-omp",
+        "pi"
       ],
       "shortlisted_on": [
         "pi",
@@ -762,10 +747,10 @@
       ]
     },
     {
-      "family_key": "gemini-3.1-flash-lite",
+      "family_key": "gemini-3-1-flash-lite",
       "label": "Gemini 3.1 Flash Lite",
       "cost_band": "cheap",
-      "what": "The cheapest tier Google offers here — below Flash. For very high volume, very low difficulty work where per-call cost is the whole constraint.",
+      "what": "The cheapest tier Google offers here \u2014 below Flash. For very high volume, very low difficulty work where per-call cost is the whole constraint.",
       "not_for": [
         "Anything involving code edits.",
         "Multi-step work of any kind.",
@@ -782,8 +767,8 @@
         "Strip the boilerplate header off each of these files."
       ],
       "reachable_from": [
-        "pi",
-        "acp-omp"
+        "acp-omp",
+        "pi"
       ],
       "shortlisted_on": [
         "pi",
@@ -791,7 +776,7 @@
       ]
     },
     {
-      "family_key": "gemini-3.5-flash-lite",
+      "family_key": "gemini-3-5-flash-lite",
       "label": "Gemini 3.5 Flash Lite",
       "cost_band": "cheap",
       "what": "A point revision of the Flash Lite line. Cheapest tier; same profile as its 3.1 sibling.",
@@ -811,8 +796,8 @@
         "Drop the duplicate entries out of this list."
       ],
       "reachable_from": [
-        "pi",
-        "acp-omp"
+        "acp-omp",
+        "pi"
       ],
       "shortlisted_on": [
         "pi",
@@ -820,7 +805,7 @@
       ]
     },
     {
-      "family_key": "grok-4.5",
+      "family_key": "grok-4-5",
       "label": "Grok 4.5",
       "cost_band": "mid",
       "what": "xAI's current model. Fast, competent on ordinary implementation, and grounded in more recent real-world information than most families here.",
@@ -839,17 +824,17 @@
         "What is the current recommended way to do this, and implement it."
       ],
       "reachable_from": [
-        "pi",
-        "acp-omp",
         "acp-grok",
-        "acp-hermes-agent"
+        "acp-hermes-agent",
+        "acp-omp",
+        "pi"
       ],
       "shortlisted_on": [
         "acp-grok"
       ]
     },
     {
-      "family_key": "cursor-grok-4.6",
+      "family_key": "cursor-grok-4-6",
       "label": "Grok 4.6 (Cursor build)",
       "cost_band": "mid",
       "what": "Cursor's packaging of a newer Grok, exposed with `-fast` variants that collapse into one family. Fast turns with Cursor's editor context.",
@@ -873,7 +858,7 @@
       "shortlisted_on": []
     },
     {
-      "family_key": "composer-2.5",
+      "family_key": "composer-2-5",
       "label": "Cursor Composer 2.5",
       "cost_band": "mid",
       "what": "Cursor's in-house model, tuned specifically for fast, well-scoped edits inside an indexed project. On that narrow task it is the best value here; off it, it is unremarkable.",

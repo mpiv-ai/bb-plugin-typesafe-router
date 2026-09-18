@@ -85,7 +85,7 @@ describe("family membership", () => {
     }
   });
 
-  it("derives every cost_band from the name heuristic rather than asserting one", () => {
+  it("resolves every authored relative tier", () => {
     for (const family of cards.families) {
       expect(bandForFamily(family.family_key), family.family_key).toBe(family.cost_band);
     }
@@ -95,13 +95,7 @@ describe("family membership", () => {
     const unassigned = cards.families.filter((f) => f.cost_band === "unassigned");
     // The GPT-5.x names match no rule; inventing a band for them would be
     // indistinguishable from a measured one in the replay report.
-    expect(unassigned.map((f) => f.family_key).sort()).toEqual([
-      "gpt-5.5",
-      "gpt-5.6-luna",
-      "gpt-5.6-sol",
-      "gpt-5.6-sol-900k",
-      "gpt-5.6-terra",
-    ]);
+    expect(unassigned.map((f) => f.family_key)).toEqual(["gpt-5-5"]);
   });
 
   it("states reachability that matches the captured catalog exactly", () => {

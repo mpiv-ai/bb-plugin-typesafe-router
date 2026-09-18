@@ -12,11 +12,16 @@
 import { choice } from "@typesafe-ai/sdk";
 import type { ChoiceCriteria, Questions, SystemOneResult } from "@typesafe-ai/sdk";
 import {
+  MAX_MODELS_PER_HARNESS,
+  curateModels,
   defaultModelFor,
   findHarness,
   type CatalogHarness,
   type CatalogModel,
 } from "./catalog.js";
+
+import { classifyTask, type TaskAxis } from "./task-axis.js";
+import { axisScore, capabilityProse, familyCard, harnessCard } from "./knowledge.js";
 
 export const JEV_MODEL = "jev-1.13.0";
 
@@ -61,11 +66,7 @@ export function truncateMessage(text: string, max: number = MAX_MESSAGE_CHARS): 
   return `${trimmed.slice(0, max)}\n[truncated]`;
 }
 
-/**
- * Criteria for the harness question. Each label is a provider id; its
- * description is the harness name plus the models it can reach, which is the
- * only thing that distinguishes two agent harnesses from the outside.
- */
+/** Live choices enriched with authored harness capabilities. */
 export function harnessCriteria(
   catalog: readonly CatalogHarness[],
   currentProviderId: string | null,
@@ -74,6 +75,7 @@ export function harnessCriteria(
   for (const harness of catalog) {
     criteria[harness.id] = {
       harness: harness.displayName,
+      ...capabilityProse(harnessCard(harness.id)),
       models: harness.models.map((model) => model.displayName),
       is_current_default: harness.id === currentProviderId,
     };
@@ -81,11 +83,15 @@ export function harnessCriteria(
   return criteria;
 }
 
-export function modelCriteria(harness: CatalogHarness): ChoiceCriteria {
+export function modelCriteria(harness: CatalogHarness, axis: TaskAxis = "mixed"): ChoiceCriteria {
   const criteria: ChoiceCriteria = {};
   for (const model of harness.models) {
     criteria[model.id] = {
       name: model.displayName,
+      ...capabilityProse(familyCard(model.id)),
+      relative_tier: familyCard(model.id)?.cost_band ?? "unassigned",
+      task_axis: axis,
+      snapshot_rank: axisScore(model.id, axis),
       description: model.description,
       is_harness_default: model.isDefault,
     };
@@ -108,7 +114,9 @@ export async function routeFirstMessage(
   client: SystemOneCaller,
   request: RouteRequest,
 ): Promise<RouteResult> {
-  if (request.catalog.length === 0) {
+  const axis = classifyTask(truncateMessage(request.messageText));
+  const catalog = request.catalog.map(h => ({ ...h, models: curateModels(h.models, MAX_MODELS_PER_HARNESS, axis) })).filter(h => h.models.length > 0);
+  if (catalog.length === 0) {
     throw new Error("No harness on this machine has any models to route to.");
   }
   const started = Date.now();
@@ -126,24 +134,24 @@ export async function routeFirstMessage(
     questions: {
       harness: choice(
         HARNESS_INSTRUCTIONS,
-        harnessCriteria(request.catalog, request.currentProviderId),
+        harnessCriteria(catalog, request.currentProviderId),
       ),
     },
   });
   inputTokens += harnessAnswer.usage.input_tokens ?? 0;
 
-  let harness = findHarness(request.catalog, harnessAnswer.answers.harness.choice);
+  let harness = findHarness(catalog, harnessAnswer.answers.harness.choice);
   if (harness === null) {
     usedFallback = true;
     harness =
-      findHarness(request.catalog, request.currentProviderId ?? "") ??
-      request.catalog[0]!;
+      findHarness(catalog, request.currentProviderId ?? "") ??
+      catalog[0]!;
   }
 
   const modelAnswer = await client.systemOne({
     model: JEV_MODEL,
     state: { ...state, chosen_harness: harness.displayName },
-    questions: { model: choice(MODEL_INSTRUCTIONS, modelCriteria(harness)) },
+    questions: { model: choice(MODEL_INSTRUCTIONS, modelCriteria(harness, axis)) },
   });
   inputTokens += modelAnswer.usage.input_tokens ?? 0;
 

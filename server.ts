@@ -24,19 +24,12 @@ import { TypeSafeClient } from "@typesafe-ai/sdk";
 import { z } from "zod";
 import {
   buildCatalog,
-  CURATION_MODES,
   isHarnessAllowed,
-  MAX_MODELS_PER_HARNESS,
   type CatalogHarness,
   type CatalogModel,
 } from "./lib/catalog.js";
 import {
-  clampMaxModels,
   emptyCatalogDetail,
-  MAX_MODELS_CEILING,
-  MIN_MODELS_PER_HARNESS,
-  parseCurationMode,
-  parseHarnessIds,
   preferenceSignature,
   readPreferences,
   withHarnessAllowed,
@@ -54,6 +47,7 @@ import {
   STUB_PROVIDER_DISPLAY_NAME,
   STUB_PROVIDER_ID,
 } from "./lib/provider.js";
+import { createPreferenceStore } from "./lib/preference-store.js";
 import { routeFirstMessage } from "./lib/router.js";
 
 /** Realtime channel the composer banner listens on. */
@@ -95,10 +89,6 @@ const harnessRowSchema = z.object({
 /** Everything the settings section renders. Never carries the API key itself. */
 const settingsStateSchema = z.object({
   enabled: z.boolean(),
-  maxModelsPerHarness: z.number(),
-  curationMode: z.string(),
-  includeHarnesses: z.string(),
-  excludeHarnesses: z.string(),
   hasApiKey: z.boolean(),
   harnesses: z.array(harnessRowSchema),
   /** Null unless the live harness list could not be read. */
@@ -118,10 +108,6 @@ export const rpcContract = defineRpcContract({
     input: z
       .object({
         enabled: z.boolean().optional(),
-        maxModelsPerHarness: z.number().optional(),
-        curationMode: z.string().optional(),
-        includeHarnesses: z.string().optional(),
-        excludeHarnesses: z.string().optional(),
       })
       .strict(),
     output: settingsStateSchema,
@@ -137,11 +123,6 @@ export type SettingsState = z.infer<typeof settingsStateSchema>;
 export type HarnessRow = z.infer<typeof harnessRowSchema>;
 
 export default async function plugin(bb: BbPluginApi) {
-  // Declared, not just read: every field here renders on the plugin's own page
-  // under Settings, and is editable with `bb plugin config typesafe-router`.
-  // The settings section in app.tsx is a friendlier front end over these same
-  // values — both write through `settings.experimental_set`, so the page and
-  // the CLI are one source of truth.
   const settings = bb.settings.define({
     typesafeApiKey: {
       type: "string",
@@ -149,57 +130,8 @@ export default async function plugin(bb: BbPluginApi) {
       description: "Used for the two Choice calls that pick a harness and model.",
       secret: true,
     },
-    enabled: {
-      type: "boolean",
-      label: "Route first messages",
-      description:
-        "Off leaves every thread on the harness it was created with. Takes effect on the next message.",
-      default: true,
-    },
-    maxModelsPerHarness: {
-      type: "number",
-      label: "Models offered per harness",
-      description: `How many models from each harness TypeSafe may choose between (${MIN_MODELS_PER_HARNESS}–${MAX_MODELS_CEILING}). Lower is cheaper and blunter.`,
-      default: MAX_MODELS_PER_HARNESS,
-      experimental_schema: z
-        .number()
-        .int()
-        .min(MIN_MODELS_PER_HARNESS)
-        .max(MAX_MODELS_CEILING),
-    },
-    curationMode: {
-      type: "select",
-      label: "How to trim an oversized harness",
-      description:
-        "Both modes cap the list, collapse model families, and keep the provider's default.",
-      options: [...CURATION_MODES],
-      default: "weighted",
-      // Typed as a plain string validator so the descriptor's
-      // StandardSchemaV1<string, string> contract is satisfied exactly.
-      experimental_schema: z
-        .string()
-        .refine(
-          (value) => (CURATION_MODES as readonly string[]).includes(value),
-          `Expected one of: ${CURATION_MODES.join(", ")}`,
-        ),
-    },
-    includeHarnesses: {
-      type: "string",
-      label: "Only these harnesses",
-      description:
-        "One provider id per line (codex, acp-omp). Empty means every available harness. `#` starts a comment.",
-      experimental_multiline: true,
-      default: "",
-    },
-    excludeHarnesses: {
-      type: "string",
-      label: "Never these harnesses",
-      description:
-        "One provider id per line, applied after the include list. `#` starts a comment.",
-      experimental_multiline: true,
-      default: "",
-    },
   });
+  const preferenceStore = await createPreferenceStore(bb);
 
   // The picker row. Registered unconditionally — without it the New Thread page
   // has no selectable harness for a user who wants TypeSafe to decide, and Send
@@ -288,7 +220,8 @@ export default async function plugin(bb: BbPluginApi) {
    */
   async function readSettingsState(): Promise<SettingsState> {
     const current = await settings.get();
-    const preferences = readPreferences(current);
+    const stored = await preferenceStore.get();
+    const preferences = readPreferences(stored);
     let harnesses: HarnessRow[] = [];
     let harnessError: string | null = null;
     try {
@@ -304,16 +237,12 @@ export default async function plugin(bb: BbPluginApi) {
         }));
     } catch (cause) {
       // A settings page that cannot list harnesses still has to render the
-      // behaviour controls and the typed escape hatch.
+      // routing switch and a readable connection error.
       harnessError = cause instanceof Error ? cause.message : String(cause);
       bb.log.warn(`could not list harnesses for the settings page: ${harnessError}`);
     }
     return {
-      enabled: current.enabled,
-      maxModelsPerHarness: clampMaxModels(current.maxModelsPerHarness),
-      curationMode: preferences.curationMode,
-      includeHarnesses: current.includeHarnesses,
-      excludeHarnesses: current.excludeHarnesses,
+      enabled: stored.enabled,
       // The key itself never leaves the server; the page only needs to know
       // whether routing can run at all.
       hasApiKey: typeof current.typesafeApiKey === "string" && current.typesafeApiKey !== "",
@@ -328,34 +257,15 @@ export default async function plugin(bb: BbPluginApi) {
     }),
     settings_state: () => readSettingsState(),
     settings_update: async (patch) => {
-      const next: Parameters<typeof settings.experimental_set>[0] = {};
-      if (patch.enabled !== undefined) next.enabled = patch.enabled;
-      if (patch.maxModelsPerHarness !== undefined) {
-        next.maxModelsPerHarness = clampMaxModels(patch.maxModelsPerHarness);
-      }
-      if (patch.curationMode !== undefined) {
-        next.curationMode = parseCurationMode(patch.curationMode);
-      }
-      if (patch.includeHarnesses !== undefined) {
-        next.includeHarnesses = patch.includeHarnesses;
-      }
-      if (patch.excludeHarnesses !== undefined) {
-        next.excludeHarnesses = patch.excludeHarnesses;
-      }
-      await settings.experimental_set(next);
+      await preferenceStore.update(current => ({ ...current, ...patch }));
       return readSettingsState();
     },
     settings_set_harness: async ({ providerId, allowed }) => {
-      const current = await settings.get();
-      const lists = withHarnessAllowed(
-        {
-          include: parseHarnessIds(current.includeHarnesses),
-          exclude: parseHarnessIds(current.excludeHarnesses),
-        },
-        providerId,
-        allowed,
-      );
-      await settings.experimental_set(lists);
+      if (!isRoutableProviderId(providerId)) throw new Error("The router stub cannot run turns");
+      await preferenceStore.update(current => ({
+        ...current,
+        ...withHarnessAllowed(readPreferences(current).filter, providerId, allowed),
+      }));
       return readSettingsState();
     },
   });
@@ -413,8 +323,7 @@ export default async function plugin(bb: BbPluginApi) {
     );
     const loaded: LoadedCatalog = {
       catalog: buildCatalog(allowed, new Map(perProvider), {
-        max: preferences.maxModelsPerHarness,
-        mode: preferences.curationMode,
+        deferShortlist: true,
         filter: preferences.filter,
       }),
       routableBeforeFilter: routable.length,
@@ -441,12 +350,14 @@ export default async function plugin(bb: BbPluginApi) {
       bb.log.warn(
         `routing state unreadable for ${ctx.thread.id}: ${cause instanceof Error ? cause.message : String(cause)}`,
       );
-      return { action: "proceed" };
+      return isRoutableProviderId(ctx.requestedExecution.providerId ?? "")
+        ? { action: "proceed" }
+        : { action: "reject", message: "Routing state is unreadable; retry after fixing the router." };
     }
 
     const current = await settings.get();
     const decision = decideDispatch({
-      enabled: current.enabled,
+      enabled: (await preferenceStore.get()).enabled,
       hasApiKey: typeof current.typesafeApiKey === "string" && current.typesafeApiKey !== "",
       pluginId: bb.pluginId,
       requestedProviderId: ctx.requestedExecution.providerId,
@@ -525,11 +436,11 @@ export default async function plugin(bb: BbPluginApi) {
 
       const { catalog, routableBeforeFilter } = await loadCatalog(
         ctx.host?.id ?? null,
-        readPreferences(current),
+        readPreferences(await preferenceStore.get()),
       );
       // Fail closed before spending a Choice call. On the picker stub this
-      // becomes a rejection the user can read and act on; on a real harness the
-      // thread simply proceeds where it already was.
+      // becomes a rejection the user can read and act on. Exclude-all also
+      // rejects a held first message on a real harness.
       if (catalog.length === 0) {
         await settle(threadId, "skipped", emptyCatalogDetail(routableBeforeFilter));
         return;

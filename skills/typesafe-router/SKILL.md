@@ -34,7 +34,7 @@ usual flow below is a proposal you can decline.
 2. Off the hook, the plugin reads this machine's live catalogs
    (`bb provider list --machine <id>` is the same data), drops any harness the
    settings exclude, and curates each survivor to at most
-   `maxModelsPerHarness` models (default eight). The catalogs are always read
+   eight models ranked for the local task axis. The catalogs are always read
    live; settings only trim what Jev is offered.
 3. TypeSafe (Jev) answers two sequential Choice questions: first the harness,
    then a model from that harness's curated list only.
@@ -68,47 +68,22 @@ one.
 
 ## Configuration
 
-The settings live on the plugin's page under **Settings → Tools → TypeSafe
-Router**, where a **Routing preferences** section lists this machine's harnesses
-as switches. The same values from a shell:
+The auto-form under **Settings → Tools → TypeSafe Router** declares only the
+secret API key. The custom section has one routing switch and live harness
+switches; these write plugin storage through RPC. Changes apply to the next
+first message. Old preference keys migrate once, preserving include/exclude
+restrictions. The old model cap and curation mode are retired.
 
-```
-bb plugin config typesafe-router                                 # show all
-bb plugin config typesafe-router set typesafeApiKey 'YOUR_KEY'   # secret
-bb plugin config typesafe-router set enabled false               # stop routing
-bb plugin config typesafe-router set maxModelsPerHarness 4       # 2–16, default 8
-bb plugin config typesafe-router set curationMode 'catalog_order'
-bb plugin config typesafe-router set excludeHarnesses 'acp-omp'
-```
+Shortlists always use a local task-axis classifier and the vendored public-eval
+snapshot, with a constant cap of eight. Both Choice calls include capability
+cards. No third TypeSafe call or live benchmark scrape is performed.
 
-| Setting | Default | Effect |
-| --- | --- | --- |
-| `typesafeApiKey` | *(unset)* | Secret. Without it nothing is routed. |
-| `enabled` | `true` | Off leaves every thread where it was created. |
-| `maxModelsPerHarness` | `8` | Models per harness Jev chooses between (2–16). |
-| `curationMode` | `weighted` | `weighted` ranks by built-in name weights; `catalog_order` keeps the provider's own order. Both cap, dedupe families, and keep the provider default. |
-| `includeHarnesses` | `""` | Allow-list, one provider id per line; empty means all. |
-| `excludeHarnesses` | `""` | Applied after the include list, one id per line. |
-
-`#` starts a comment in either list, and an id that matches nothing on the
-machine is skipped rather than failing. The picker row is excluded
-unconditionally and cannot be named back in.
-
-These are re-read on every routing pass, so **a change applies to the next first
-message without a reload**. Reload only matters for the `needs-configuration`
-banner, which is computed once at plugin load.
-
-If the include/exclude combination leaves **no routable harness**, the plugin
-fails closed: it does not call TypeSafe, and a first message on the picker row is
-rejected with "every available harness is switched off in this plugin's
-settings" rather than hanging on the wait card.
-
-Without a key the plugin reports `needs-configuration` and blocks nothing on
-threads that already have a real harness.
+If filtering leaves no harness, routing fails closed before calling TypeSafe.
+The picker stub never receives proceed.
 
 ## Privacy
 
 Only the first message's text is sent to TypeSafe, truncated to 4000
 characters, along with the project name and the names and descriptions of the
-harnesses and models being chosen between (BB catalog strings, not your
-content). The repository, the timeline, and later messages are not sent.
+harnesses and models being chosen between, plus authored capability cards
+and vendored snapshot ranks. The repository, the timeline, and later messages are not sent.

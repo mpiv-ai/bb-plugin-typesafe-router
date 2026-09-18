@@ -1,3 +1,19 @@
+# Production capability knowledge
+
+Production routing now imports the capability cards and `axis-scores.json`.
+The catalog snapshot below is historical; its old shortlist is retained for
+the thin/rich replay, not used to shortlist production models. Family identities
+are normalized when loaded. The replay compares criteria against that fixed
+historical offer set and does not measure the new task-axis ranking.
+
+The axis snapshot records source URLs, capture date, raw public results, and
+limitations. `lib/knowledge.ts` computes within-benchmark percentiles, then
+averages them by axis. GDPval-AA v2 is a writing/office-work proxy rather than
+a creative-writing benchmark. Missing results stay null. Relative cost tiers
+are authored card metadata and do not rank shortlists or assert current prices.
+
+## Historical dataset notes (prior to production integration)
+
 # Routing capability cards and eval set
 
 Jev has no model catalog. It has never heard of `gpt-6-astra`, and it cannot
