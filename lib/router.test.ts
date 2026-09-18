@@ -84,12 +84,6 @@ const singleEffortCatalog: CatalogHarness[] = [
   },
 ];
 
-/** Fields every RouteRequest needs beyond the ones a given test cares about. */
-const noExplicitEffort = {
-  requestedReasoningLevel: null,
-  reasoningLevelIsExplicit: false,
-} as const;
-
 /** Answers each Choice call in order from a scripted list of labels. */
 function fakeClient(labels: string[]): SystemOneCaller & { states: unknown[] } {
   const states: unknown[] = [];
@@ -163,7 +157,6 @@ describe("routeFirstMessage", () => {
       projectName: "TypeSafe Router",
       catalog,
       currentProviderId: "codex",
-      ...noExplicitEffort,
     });
     expect(result.harness.id).toBe("claude-code");
     expect(result.model.id).toBe("claude-opus-5[1m]");
@@ -181,7 +174,6 @@ describe("routeFirstMessage", () => {
       projectName: "proj",
       catalog,
       currentProviderId: "codex",
-      ...noExplicitEffort,
     });
     const state = client.states[0] as Record<string, unknown>;
     expect(Object.keys(state).sort()).toEqual([
@@ -201,7 +193,6 @@ describe("routeFirstMessage", () => {
       projectName: null,
       catalog,
       currentProviderId: "codex",
-      ...noExplicitEffort,
     });
     const second = client.states[1] as Record<string, unknown>;
     expect(second.chosen_harness).toBe("Claude Code");
@@ -214,7 +205,6 @@ describe("routeFirstMessage", () => {
       projectName: null,
       catalog,
       currentProviderId: "codex",
-      ...noExplicitEffort,
     });
     expect(result.harness.id).toBe("codex");
     expect(result.model.id).toBe("gpt-5.5");
@@ -228,7 +218,6 @@ describe("routeFirstMessage", () => {
       projectName: null,
       catalog,
       currentProviderId: "codex",
-      ...noExplicitEffort,
     });
     expect(result.model.id).toBe("gpt-6-astra");
     expect(result.usedFallback).toBe(true);
@@ -241,7 +230,6 @@ describe("routeFirstMessage", () => {
         projectName: null,
         catalog: [],
         currentProviderId: "codex",
-        ...noExplicitEffort,
       }),
     ).rejects.toThrow(/no harness/i);
   });
@@ -255,7 +243,6 @@ describe("routeFirstMessage effort", () => {
       projectName: null,
       catalog: effortCatalog,
       currentProviderId: "codex",
-      ...noExplicitEffort,
     });
     expect(client.states).toHaveLength(3);
     const thirdState = client.states[2] as Record<string, unknown>;
@@ -267,34 +254,7 @@ describe("routeFirstMessage effort", () => {
     expect(result.inputTokens).toBe(30);
   });
 
-  it("skips the call when the user already chose an effort explicitly", async () => {
-    const client = fakeClient(["codex", "gpt-6-astra"]);
-    const result = await routeFirstMessage(client, {
-      messageText: "hi",
-      projectName: null,
-      catalog: effortCatalog,
-      currentProviderId: "codex",
-      requestedReasoningLevel: "low",
-      reasoningLevelIsExplicit: true,
-    });
-    expect(client.states).toHaveLength(2);
-    expect(result.reasoningLevel).toBe("low");
-    expect(result.effortConfidence).toBeNull();
-  });
 
-  it("rounds an explicit effort the model cannot reach, still without a call", async () => {
-    const client = fakeClient(["codex", "gpt-6-astra"]);
-    const result = await routeFirstMessage(client, {
-      messageText: "hi",
-      projectName: null,
-      catalog: effortCatalog,
-      currentProviderId: "codex",
-      requestedReasoningLevel: "max",
-      reasoningLevelIsExplicit: true,
-    });
-    expect(client.states).toHaveLength(2);
-    expect(result.reasoningLevel).toBe("high");
-  });
 
   it("skips the call when the model's ladder has only one rung", async () => {
     const client = fakeClient(["codex", "gpt-6-astra"]);
@@ -303,7 +263,6 @@ describe("routeFirstMessage effort", () => {
       projectName: null,
       catalog: singleEffortCatalog,
       currentProviderId: "codex",
-      ...noExplicitEffort,
     });
     expect(client.states).toHaveLength(2);
     expect(result.reasoningLevel).toBe("medium");
@@ -317,7 +276,6 @@ describe("routeFirstMessage effort", () => {
       projectName: null,
       catalog: effortCatalog,
       currentProviderId: "codex",
-      ...noExplicitEffort,
     });
     expect(result.reasoningLevel).toBe("medium");
     expect(result.usedFallback).toBe(true);

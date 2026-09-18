@@ -149,10 +149,12 @@ hook itself only reads cheap state and answers. It holds the first message with
    survivor to at most eight models for the locally classified task axis. The catalogs themselves are
    always fetched live; the settings only trim what Jev is shown.
 2. Two or three sequential TypeSafe Choice calls: **which harness**, then
-   **which model inside that harness**, then — only when that model offers more
-   than one reasoning effort and you did not already pick one on the New
-   Thread page — **how much effort**. Hierarchical, because these are separate
-   judgements and a flat 40-label question is none of them.
+   **which model inside that harness**, then — when that model offers more
+   than one reasoning effort — **how much effort**. Hierarchical, because these
+   are separate judgements and a flat 40-label question is none of them. The
+   effort shown on the New Thread page is not consulted: BB reports it as a
+   choice whether you touched it or not, so the confirmation card is where you
+   override the proposal.
 3. Replace the composer with a confirmation card showing the proposed harness,
    model, and effort. Effort is editable right there when the model offers a
    choice. **Yep** applies it.

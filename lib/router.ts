@@ -6,9 +6,11 @@
 // model inside it, and how hard that model should think — and produces a
 // label set too large to reason over. So: choose the harness from every
 // harness this machine actually has, then a model from that harness's
-// curated list, then — only when the model offers more than one level and
-// the user did not already choose one on the New Thread page — an effort
-// from that model's own ladder.
+// curated list, then — when the model offers more than one level — an effort
+// from that model's own ladder. The New Thread page's effort is not consulted:
+// BB reports whatever the picker shows as explicit, remembered or not, so it
+// cannot tell a deliberate choice from a leftover. The confirm card is where a
+// person overrides the proposal.
 //
 // The caller passes a `SystemOneCaller`, so tests drive this with a fake and
 // never reach the network.
@@ -23,7 +25,7 @@ import {
   type CatalogHarness,
   type CatalogModel,
 } from "./catalog.js";
-import { nearestReasoningLevel, type ReasoningLevel } from "./execution.js";
+import type { ReasoningLevel } from "./execution.js";
 
 import { classifyTask, type TaskAxis } from "./task-axis.js";
 import { axisScore, capabilityProse, familyCard, harnessCard } from "./knowledge.js";
@@ -52,10 +54,6 @@ export interface RouteRequest {
   catalog: readonly CatalogHarness[];
   /** Harness BB resolved on its own, offered to Jev as the status quo. */
   currentProviderId: string | null;
-  /** Effort core already resolved for this dispatch, from the New Thread page or a client default. */
-  requestedReasoningLevel: ReasoningLevel | null;
-  /** True when the user deliberately chose the effort above; that choice always wins. */
-  reasoningLevelIsExplicit: boolean;
 }
 
 export interface RouteResult {
@@ -63,9 +61,9 @@ export interface RouteResult {
   model: CatalogModel;
   harnessConfidence: number;
   modelConfidence: number;
-  /** Null when the model has no effort ladder and the user did not choose one. */
+  /** Null when the model has no effort ladder. */
   reasoningLevel: ReasoningLevel | null;
-  /** Null when no effort Choice call was made — explicit request or a one-entry ladder. */
+  /** Null when no effort Choice call was made — a ladder with fewer than two rungs. */
   effortConfidence: number | null;
   /** True when a returned label was not in the offered set and we fell back. */
   usedFallback: boolean;
@@ -148,7 +146,7 @@ const EFFORT_INSTRUCTIONS =
 
 /**
  * Run the harness and model Choice calls, then a third for effort when the
- * chosen model has more than one level and the user did not already pick one.
+ * chosen model has more than one level.
  * Each label set depends on the previous answer, so the calls are sequential
  * by construction — there is no useful way to run them in parallel.
  */
@@ -207,39 +205,28 @@ export async function routeFirstMessage(
     throw new Error(`Harness ${harness.id} reported no usable model.`);
   }
 
-  // The user's own explicit choice wins outright; the model's ladder decides
-  // whether there is even a question to ask.
+  // The model's ladder decides whether there is even a question to ask.
   let reasoningLevel: ReasoningLevel | null = null;
   let effortConfidence: number | null = null;
-  if (request.reasoningLevelIsExplicit) {
-    // Rounded here as well as at spawn, so the card shows the level the
-    // thread will actually get rather than one this model cannot run.
-    const requested = request.requestedReasoningLevel;
-    reasoningLevel =
-      requested === null
-        ? null
-        : (nearestReasoningLevel(requested, model.reasoningLevels ?? []) ?? requested);
+  const levels = model.reasoningLevels ?? [];
+  if (levels.length < 2) {
+    reasoningLevel = levels[0] ?? null;
   } else {
-    const levels = model.reasoningLevels ?? [];
-    if (levels.length < 2) {
-      reasoningLevel = levels[0] ?? null;
-    } else {
-      const effortAnswer = await client.systemOne({
-        model: JEV_MODEL,
-        state: { ...state, chosen_harness: harness.displayName, chosen_model: model.displayName },
-        questions: { effort: choice(EFFORT_INSTRUCTIONS, effortCriteria(model, axis)) },
-      });
-      inputTokens += effortAnswer.usage.input_tokens ?? 0;
+    const effortAnswer = await client.systemOne({
+      model: JEV_MODEL,
+      state: { ...state, chosen_harness: harness.displayName, chosen_model: model.displayName },
+      questions: { effort: choice(EFFORT_INSTRUCTIONS, effortCriteria(model, axis)) },
+    });
+    inputTokens += effortAnswer.usage.input_tokens ?? 0;
 
-      const chosen = effortAnswer.answers.effort.choice;
-      const match = levels.find((level) => level === chosen);
-      if (match === undefined) {
-        usedFallback = true;
-        reasoningLevel = model.defaultReasoningLevel ?? null;
-      } else {
-        reasoningLevel = match;
-        effortConfidence = effortAnswer.answers.effort.confidence;
-      }
+    const chosen = effortAnswer.answers.effort.choice;
+    const match = levels.find((level) => level === chosen);
+    if (match === undefined) {
+      usedFallback = true;
+      reasoningLevel = model.defaultReasoningLevel ?? null;
+    } else {
+      reasoningLevel = match;
+      effortConfidence = effortAnswer.answers.effort.confidence;
     }
   }
 
