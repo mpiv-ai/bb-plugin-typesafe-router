@@ -8,13 +8,13 @@ import { Markdown } from "@get-bb/plugin-sdk/app";
 const REPO = "https://github.com/mpiv-ai/bb-plugin-typesafe-router";
 
 export const SETTINGS_GUIDE = `
-TypeSafe Router picks the **harness**, **model**, and **reasoning effort** for a thread's first message, then asks you to confirm before anything runs. After that first message the harness is fixed for the thread; the model and effort can still be changed in the composer as usual.
+TypeSafe Router picks the **harness**, **model**, and **reasoning effort** for a thread's first message, then asks you to confirm before anything runs. It only acts when you ask: pick **TypeSafe Router** as the provider on the New Thread page. After that first message the harness is fixed for the thread; the model and effort can still be changed in the composer as usual.
 
 ### Start a routed thread
 
 1. **New Thread** → choose **TypeSafe Router** as the provider and its one model, **Choose harness and model**.
 2. Write your message and press **Send** once. A line above the composer reads "TypeSafe is selecting the right harness and model…". Nothing is written to the timeline yet.
-3. A card replaces the composer with the proposed harness, model, and effort. Change the effort there if you want. **Yep** starts the work; **Keep what I had** declines.
+3. A card replaces the composer with the proposed harness, model, and effort. Change the effort there if you want. **Yep** starts the work; **Cancel** declines, and nothing runs.
 
 BB cannot change a running thread's harness, so confirming moves your message to a new thread on the chosen harness and takes you there. The placeholder thread is archived.
 
@@ -24,12 +24,12 @@ The permission mode and fast mode you set on the New Thread page follow the mess
 
 ### What is never routed
 
-Only a thread's first message is routed. Follow-ups, steers, retries, hidden background threads, and threads an agent or another plugin started are never touched. A first message on a thread you started directly on Codex or Claude still gets a proposal; declining keeps what you had.
+A thread you start directly on Codex, Claude, or any other harness is never routed — choosing the TypeSafe Router row is the request. Even then only the first message is routed: follow-ups, steers, retries, hidden background threads, and threads an agent or another plugin started are never touched.
 
 ### The settings on this page
 
 - **TypeSafe API key** — required. Without it nothing is routed, and a thread started on the TypeSafe Router row cannot run at all.
-- **Route first messages** — the master switch. Off, every message proceeds untouched.
+- **Route first messages** — the master switch. Off, nothing is routed, and a thread started on the TypeSafe Router row is refused with a message saying so.
 - **Harness switches** — which of the harnesses installed and signed in on this machine TypeSafe may choose from. Switching them all off blocks routed threads rather than guessing.
 
 Changes apply to the next first message; no reload is needed.

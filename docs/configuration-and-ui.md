@@ -133,8 +133,8 @@ Payload from the server:
 
 The card shows Harness, Model, and — when there is anything to show — Effort,
 as a `<select>` over the ladder when it has more than one rung and as text
-otherwise. **Yep** submits `{ accept: true, reasoningLevel }`; **Keep what I
-had** cancels. The footnote explains that the harness locks once the thread
+otherwise. **Yep** submits `{ accept: true, reasoningLevel }`; **Cancel**
+cancels, and since the thread is on the picker row, nothing runs. The footnote explains that the harness locks once the thread
 starts while model and effort stay changeable.
 
 The payload is treated as untrusted on both sides: the card coerces every field

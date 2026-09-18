@@ -1,7 +1,12 @@
 # TypeSafe Router
 
-A BB plugin that picks the harness and model for a thread's **first message**,
-using TypeSafe (Jev), and asks you to confirm before it locks them in.
+A BB plugin that picks the harness, model, and reasoning effort for a thread's
+**first message**, using TypeSafe (Jev), and asks you to confirm before it locks
+them in.
+
+Routing is opt-in, per thread: it happens only when you pick **TypeSafe Router**
+as the provider on the New Thread page. A thread you start directly on Codex,
+Claude, or any other harness is never touched.
 
 BB fixes a thread's harness once the thread runs. The first message is the only
 moment that choice is still open, so that is the only moment this plugin acts.
@@ -44,8 +49,9 @@ thread that already has a real harness.
 3. Type your message and press **Send** *once*.
 4. The composer is replaced by a wait card reading "TypeSafe is selecting the
    right harness and model." Nothing is written to the timeline yet.
-5. A confirmation card appears with the harness and model TypeSafe chose. Press
-   **Yep** and the thread continues there. **Keep what I had** declines.
+5. A confirmation card appears with the harness, model, and effort TypeSafe
+   chose; the effort is editable there. Press **Yep** and the thread continues
+   there. **Cancel** declines, and nothing runs.
 
 Because BB cannot swap a running thread's harness, confirming moves your
 message to a new thread on the chosen harness. A thread started on the picker
@@ -133,10 +139,11 @@ page shows the same warning as soon as the count reaches zero.
 **Send is disabled on the New Thread page.** BB needs both a provider and a
 model. Pick **TypeSafe Router** *and* its **Choose harness and model** row.
 
-**Nothing is held at all.** Only a `pending` thread's first message is routed.
-Follow-ups, steers, retries, joined turns, hidden worker threads, threads
-started by an agent or the system, and threads another plugin spawned are never
-intercepted.
+**Nothing is held at all.** Only a first message sent on the **TypeSafe Router**
+row is routed. A thread started directly on Codex, Claude, or any other harness
+is never held, and neither are follow-ups, steers, retries, joined turns, hidden
+worker threads, threads started by an agent or the system, or threads another
+plugin spawned.
 
 ## How it works
 

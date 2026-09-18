@@ -82,10 +82,10 @@ sequenceDiagram
 
 The same-harness path (the proposal keeps the harness the thread already had)
 updates the model and effort on the thread in place and lets the held message
-through instead of spawning. It is unreachable in practice while the picker row
-is excluded from the catalog — every routed thread starts on the picker row and
-every proposal names a real harness — but it is kept because the policy allows
-routing a real-harness first message too.
+through instead of spawning. It is unreachable: routing only runs for a thread
+on the picker row, and the picker row is never a candidate, so every proposal
+changes the harness. It is kept as cheap insurance, in the same spirit as the
+picker-row guard in `apply()`.
 
 ## The three rules
 
@@ -97,8 +97,10 @@ drops the row before TypeSafe sees it; and `decideDispatch()` in `lib/policy.ts`
 turns *any* `proceed` on the row into a `reject`, applied over the whole
 decision rather than inside a branch, so a future branch cannot forget it.
 
-**Only a first message is routed.** A thread is on its first message exactly
-while its status is `pending`. Everything else — follow-ups, steers, retries,
+**Only a first message sent on the picker row is routed.** Routing is opt-in,
+per thread: choosing the row is the request, and a thread started on a real
+harness is never held. A thread is on its first message exactly while its
+status is `pending`. Everything else — follow-ups, steers, retries,
 joined turns, hidden worker threads, threads an agent or the system started,
 threads another plugin spawned — proceeds untouched. A disabled plugin or a
 missing API key also proceeds everything, except the row above.

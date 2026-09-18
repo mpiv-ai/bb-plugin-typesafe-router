@@ -493,7 +493,10 @@ export default async function plugin(bb: BbPluginApi) {
         messageText: ctx.input.text,
         projectName: ctx.project.name ?? null,
         catalog,
-        currentProviderId: ctx.requestedExecution.providerId,
+        // The picker row is not a status quo worth preferring.
+        currentProviderId: isRoutableProviderId(ctx.requestedExecution.providerId)
+          ? ctx.requestedExecution.providerId
+          : null,
       });
 
       bb.log.info(

@@ -1,11 +1,14 @@
-TypeSafe Router decides which agent harness and which model should run a
-thread, at the one moment that decision is still open: the thread's first
-message.
+TypeSafe Router decides which agent harness, which model, and how much
+reasoning effort should run a thread, at the one moment that decision is still
+open: the thread's first message. It acts only when you ask — by picking
+**TypeSafe Router** on the New Thread page. Threads you start directly on a
+harness are never touched.
 
 It holds that first message, reads the harnesses and models your machine
-actually has, and asks TypeSafe (Jev) two questions — which harness, then which
-model inside it. You get a card with the answer and a **Yep** button. Confirm
-and the thread starts there; decline and it starts exactly where it would have.
+actually has, and asks TypeSafe (Jev) three questions — which harness, which
+model inside it, and how much effort. You get a card with the answer and a
+**Yep** button; the effort is editable there. Confirm and your message starts
+on that harness; cancel and nothing runs.
 
 **Using it.** On the New Thread page, pick **TypeSafe Router** and its one
 model, **Choose harness and model**, then send once. A wait card appears while
@@ -13,13 +16,12 @@ TypeSafe decides, then the confirmation card. TypeSafe Router is a picker row,
 not a harness — it exists so BB will enable Send before a harness is chosen, and
 it never runs a turn.
 
-Because BB fixes a thread's harness once the thread runs, confirming a
-*different* harness moves your message to a new thread on that harness. The
-model stays changeable either way.
+Because BB fixes a thread's harness once the thread runs, confirming moves your
+message to a new thread on the chosen harness, along with the permission and
+fast-mode choices you made. The model and effort stay changeable there.
 
-Follow-ups, steers, retries, hidden worker threads, agent-started threads, and
-other plugins' spawns are never intercepted. Without an API key the plugin
-blocks nothing on a thread that already has a real harness.
+Threads started on a real harness, follow-ups, steers, retries, hidden worker
+threads, agent-started threads, and other plugins' spawns are never intercepted.
 
 **Tuning it.** The plugin's page under Settings has a **Routing preferences**
 section that lists the harnesses this machine actually has as switches — turn
@@ -27,7 +29,8 @@ one off and it stops being offered, without typing a provider id anywhere. The
 section has only a routing switch and live harness switches. The automatic
 form contains only the secret API key. Models are ranked by a local task-axis
 classifier and a vendored public-eval snapshot, capped at eight. Capability
-cards describe the candidates in both TypeSafe calls.
+cards describe the candidates in the harness and model calls. A **How routing
+works** section under the switches is the short guide.
 
 **Requirements.** BB `>= 0.43` with Plugin SDK `>= 0.4.87`, a TypeSafe API key
 from <https://console.typesafe.ai> (this plugin ships no key), and at least one
