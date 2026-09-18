@@ -1,0 +1,2008 @@
+{
+  "schema_version": 1,
+  "captured": "2026-09-17",
+  "source": "bb provider models <id> --json, on the mpiv-hub machine",
+  "note": "Per harness we keep only the curated 8-model shortlist (curateModels with MAX_MODELS_PER_HARNESS=8), not the full lists. familyIndex maps every modelFamilyKey seen on any harness to the harnesses that offer it, and is what capability-cards.json reachable_from is checked against.",
+  "providers": [
+    {
+      "id": "codex",
+      "displayName": "Codex",
+      "available": true,
+      "modelCount": 5,
+      "familyCount": 5,
+      "emptyDescriptions": 0,
+      "shortlist": [
+        {
+          "id": "gpt-6-astra",
+          "displayName": "GPT-6-Astra",
+          "familyKey": "gpt-6-astra",
+          "isDefault": true
+        },
+        {
+          "id": "gpt-5.6-sol",
+          "displayName": "GPT-5.6-Sol",
+          "familyKey": "gpt-5.6-sol",
+          "isDefault": false
+        },
+        {
+          "id": "gpt-5.6-terra",
+          "displayName": "GPT-5.6-Terra",
+          "familyKey": "gpt-5.6-terra",
+          "isDefault": false
+        },
+        {
+          "id": "gpt-5.6-luna",
+          "displayName": "GPT-5.6-Luna",
+          "familyKey": "gpt-5.6-luna",
+          "isDefault": false
+        },
+        {
+          "id": "gpt-5.5",
+          "displayName": "GPT-5.5",
+          "familyKey": "gpt-5.5",
+          "isDefault": false
+        }
+      ]
+    },
+    {
+      "id": "claude-code",
+      "displayName": "Claude Code",
+      "available": true,
+      "modelCount": 6,
+      "familyCount": 6,
+      "emptyDescriptions": 0,
+      "shortlist": [
+        {
+          "id": "claude-fable-5-1",
+          "displayName": "Fable 5.1",
+          "familyKey": "claude-fable-5-1",
+          "isDefault": false
+        },
+        {
+          "id": "claude-opus-5[1m]",
+          "displayName": "Opus 5 (1M)",
+          "familyKey": "claude-opus-5",
+          "isDefault": true
+        },
+        {
+          "id": "claude-opus-4-8[1m]",
+          "displayName": "Opus 4.8 (1M)",
+          "familyKey": "claude-opus-4-8",
+          "isDefault": false
+        },
+        {
+          "id": "claude-opus-4-7[1m]",
+          "displayName": "Opus 4.7 (1M)",
+          "familyKey": "claude-opus-4-7",
+          "isDefault": false
+        },
+        {
+          "id": "claude-sonnet-5",
+          "displayName": "Sonnet 5",
+          "familyKey": "claude-sonnet-5",
+          "isDefault": false
+        },
+        {
+          "id": "claude-haiku-4-5-20251001",
+          "displayName": "Haiku",
+          "familyKey": "claude-haiku-4-5",
+          "isDefault": false
+        }
+      ]
+    },
+    {
+      "id": "pi",
+      "displayName": "Pi",
+      "available": true,
+      "modelCount": 402,
+      "familyCount": 290,
+      "emptyDescriptions": 0,
+      "shortlist": [
+        {
+          "id": "openai-codex/gpt-5.5",
+          "displayName": "GPT-5.5",
+          "familyKey": "gpt-5.5",
+          "isDefault": true
+        },
+        {
+          "id": "openrouter/anthropic/claude-opus-4",
+          "displayName": "Anthropic: Claude Opus 4",
+          "familyKey": "claude-opus-4",
+          "isDefault": false
+        },
+        {
+          "id": "openrouter/google/gemini-3.1-flash-lite",
+          "displayName": "Google: Gemini 3.1 Flash Lite",
+          "familyKey": "gemini-3.1-flash-lite",
+          "isDefault": false
+        },
+        {
+          "id": "openrouter/google/gemini-3.5-flash",
+          "displayName": "Google: Gemini 3.5 Flash",
+          "familyKey": "gemini-3.5-flash",
+          "isDefault": false
+        },
+        {
+          "id": "openrouter/google/gemini-3.5-flash-lite",
+          "displayName": "Google: Gemini 3.5 Flash Lite",
+          "familyKey": "gemini-3.5-flash-lite",
+          "isDefault": false
+        },
+        {
+          "id": "openrouter/google/gemini-3.6-flash",
+          "displayName": "Google: Gemini 3.6 Flash",
+          "familyKey": "gemini-3.6-flash",
+          "isDefault": false
+        },
+        {
+          "id": "openrouter/google/gemini-3.7-flash",
+          "displayName": "Google: Gemini 3.7 Flash",
+          "familyKey": "gemini-3.7-flash",
+          "isDefault": false
+        },
+        {
+          "id": "openrouter/google/gemini-3.8-flash",
+          "displayName": "Google: Gemini 3.8 Flash",
+          "familyKey": "gemini-3.8-flash",
+          "isDefault": false
+        }
+      ]
+    },
+    {
+      "id": "acp-cursor",
+      "displayName": "Cursor",
+      "available": true,
+      "modelCount": 0,
+      "familyCount": 0,
+      "emptyDescriptions": 0,
+      "shortlist": []
+    },
+    {
+      "id": "acp-omp",
+      "displayName": "omp",
+      "available": true,
+      "modelCount": 666,
+      "familyCount": 442,
+      "emptyDescriptions": 666,
+      "shortlist": [
+        {
+          "id": "cursor/gemini-3-flash",
+          "displayName": "Gemini 3 Flash",
+          "familyKey": "gemini-3-flash",
+          "isDefault": false
+        },
+        {
+          "id": "cursor/gemini-3.5-flash",
+          "displayName": "Gemini 3.5 Flash",
+          "familyKey": "gemini-3.5-flash",
+          "isDefault": false
+        },
+        {
+          "id": "cursor/gemini-3.6-flash",
+          "displayName": "Gemini 3.6 Flash",
+          "familyKey": "gemini-3.6-flash",
+          "isDefault": false
+        },
+        {
+          "id": "cursor/gemini-3.7-flash",
+          "displayName": "Gemini 3.7 Flash",
+          "familyKey": "gemini-3.7-flash",
+          "isDefault": false
+        },
+        {
+          "id": "cursor/gemini-3.8-flash",
+          "displayName": "Gemini 3.8 Flash",
+          "familyKey": "gemini-3.8-flash",
+          "isDefault": false
+        },
+        {
+          "id": "openai-codex/gpt-6-astra",
+          "displayName": "GPT-6-Astra",
+          "familyKey": "gpt-6-astra",
+          "isDefault": true
+        },
+        {
+          "id": "openrouter/google/gemini-3.1-flash-lite",
+          "displayName": "Gemini 3.1 Flash Lite",
+          "familyKey": "gemini-3.1-flash-lite",
+          "isDefault": false
+        },
+        {
+          "id": "openrouter/google/gemini-3.5-flash-lite",
+          "displayName": "Gemini 3.5 Flash Lite",
+          "familyKey": "gemini-3.5-flash-lite",
+          "isDefault": false
+        }
+      ]
+    },
+    {
+      "id": "acp-grok",
+      "displayName": "Grok Build",
+      "available": true,
+      "modelCount": 1,
+      "familyCount": 1,
+      "emptyDescriptions": 1,
+      "shortlist": [
+        {
+          "id": "grok-4.5",
+          "displayName": "grok-4.5",
+          "familyKey": "grok-4.5",
+          "isDefault": true
+        }
+      ]
+    },
+    {
+      "id": "acp-hermes-agent",
+      "displayName": "Hermes Agent",
+      "available": true,
+      "modelCount": 41,
+      "familyCount": 41,
+      "emptyDescriptions": 0,
+      "shortlist": [
+        {
+          "id": "anthropic:claude-opus-4-8",
+          "displayName": "Anthropic · claude-opus-4-8",
+          "familyKey": "claude-opus-4-8",
+          "isDefault": false
+        },
+        {
+          "id": "anthropic:claude-opus-4-7",
+          "displayName": "Anthropic · claude-opus-4-7",
+          "familyKey": "claude-opus-4-7",
+          "isDefault": false
+        },
+        {
+          "id": "anthropic:claude-opus-4-6",
+          "displayName": "Anthropic · claude-opus-4-6",
+          "familyKey": "claude-opus-4-6",
+          "isDefault": false
+        },
+        {
+          "id": "anthropic:claude-opus-4-5-20251101",
+          "displayName": "Anthropic · claude-opus-4-5-20251101",
+          "familyKey": "claude-opus-4-5",
+          "isDefault": false
+        },
+        {
+          "id": "anthropic:claude-opus-4-20250514",
+          "displayName": "Anthropic · claude-opus-4-20250514",
+          "familyKey": "claude-opus-4",
+          "isDefault": false
+        },
+        {
+          "id": "anthropic:claude-opus-5",
+          "displayName": "Anthropic · claude-opus-5",
+          "familyKey": "claude-opus-5",
+          "isDefault": false
+        },
+        {
+          "id": "openai-codex:gpt-6-astra",
+          "displayName": "ChatGPT or Codex Subscription · gpt-6-astra",
+          "familyKey": "gpt-6-astra",
+          "isDefault": false
+        },
+        {
+          "id": "openai-codex:gpt-5.6-sol-900k",
+          "displayName": "ChatGPT or Codex Subscription · gpt-5.6-sol-900k",
+          "familyKey": "gpt-5.6-sol-900k",
+          "isDefault": true
+        }
+      ]
+    }
+  ],
+  "familyIndex": {
+    "aion-2.0": [
+      "pi",
+      "acp-omp"
+    ],
+    "aion-3.0": [
+      "pi",
+      "acp-omp"
+    ],
+    "aion-3.0-mini": [
+      "pi",
+      "acp-omp"
+    ],
+    "aurora-alpha": [
+      "acp-omp"
+    ],
+    "auto": [
+      "pi",
+      "acp-omp"
+    ],
+    "auto-beta": [
+      "pi",
+      "acp-omp"
+    ],
+    "batch": [
+      "pi",
+      "acp-omp"
+    ],
+    "claude-3-haiku": [
+      "pi",
+      "acp-omp"
+    ],
+    "claude-3.5-haiku": [
+      "acp-omp"
+    ],
+    "claude-3.5-sonnet": [
+      "acp-omp"
+    ],
+    "claude-3.7-sonnet": [
+      "acp-omp"
+    ],
+    "claude-4-sonnet": [
+      "acp-omp"
+    ],
+    "claude-4.5-opus": [
+      "acp-omp"
+    ],
+    "claude-4.5-sonnet": [
+      "acp-omp"
+    ],
+    "claude-4.6-opus": [
+      "acp-omp"
+    ],
+    "claude-4.6-sonnet": [
+      "acp-omp"
+    ],
+    "claude-fable-5": [
+      "pi",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "claude-fable-5-1": [
+      "claude-code",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "claude-fable-5.1": [
+      "pi",
+      "acp-omp"
+    ],
+    "claude-fable-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "claude-haiku-4-5": [
+      "claude-code",
+      "acp-hermes-agent"
+    ],
+    "claude-haiku-4.5": [
+      "pi",
+      "acp-omp"
+    ],
+    "claude-haiku-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "claude-opus-4": [
+      "pi",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "claude-opus-4-5": [
+      "acp-hermes-agent"
+    ],
+    "claude-opus-4-6": [
+      "acp-hermes-agent"
+    ],
+    "claude-opus-4-7": [
+      "claude-code",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "claude-opus-4-7-high-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-4-7-low-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-4-7-max-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-4-7-medium-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-4-7-xhigh-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-4-8": [
+      "claude-code",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "claude-opus-4-8-high-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-4-8-low-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-4-8-max-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-4-8-medium-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-4-8-xhigh-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-4.1": [
+      "pi",
+      "acp-omp"
+    ],
+    "claude-opus-4.5": [
+      "pi",
+      "acp-omp"
+    ],
+    "claude-opus-4.6": [
+      "pi",
+      "acp-omp"
+    ],
+    "claude-opus-4.6-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-4.7": [
+      "pi",
+      "acp-omp"
+    ],
+    "claude-opus-4.7-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-4.8": [
+      "pi",
+      "acp-omp"
+    ],
+    "claude-opus-4.8-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-5": [
+      "claude-code",
+      "pi",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "claude-opus-5-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-5-high-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-5-low-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-5-medium-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-5-thinking": [
+      "acp-omp"
+    ],
+    "claude-opus-5-thinking-max-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-5-thinking-xhigh-fast": [
+      "acp-omp"
+    ],
+    "claude-opus-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "claude-sonnet-4": [
+      "pi",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "claude-sonnet-4-5": [
+      "acp-hermes-agent"
+    ],
+    "claude-sonnet-4-6": [
+      "acp-hermes-agent"
+    ],
+    "claude-sonnet-4.5": [
+      "pi",
+      "acp-omp"
+    ],
+    "claude-sonnet-4.6": [
+      "pi",
+      "acp-omp"
+    ],
+    "claude-sonnet-5": [
+      "claude-code",
+      "pi",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "claude-sonnet-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "codestral-2508": [
+      "pi",
+      "acp-omp"
+    ],
+    "command-r-08-2024": [
+      "pi",
+      "acp-omp"
+    ],
+    "command-r-plus-08-2024": [
+      "pi",
+      "acp-omp"
+    ],
+    "composer-1": [
+      "acp-omp"
+    ],
+    "composer-1.5": [
+      "acp-omp"
+    ],
+    "composer-2.5": [
+      "acp-omp"
+    ],
+    "composer-2.5-fast": [
+      "acp-omp"
+    ],
+    "cursor-grok-4.5": [
+      "acp-omp"
+    ],
+    "cursor-grok-4.5-fast": [
+      "acp-omp"
+    ],
+    "cursor-grok-4.6": [
+      "acp-omp"
+    ],
+    "cursor-grok-4.6-fast": [
+      "acp-omp"
+    ],
+    "deephermes-3-mistral-24b-preview": [
+      "acp-omp"
+    ],
+    "deepseek-chat": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-chat-v3-0324": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-chat-v3.1": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-flash-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-pro-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-r1": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-r1-0528": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-r1t2-chimera": [
+      "acp-omp"
+    ],
+    "deepseek-v3.1-nex-n1": [
+      "acp-omp"
+    ],
+    "deepseek-v3.1-terminus": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-v3.2": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-v3.2-exp": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-v4-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-v4-flash-0731": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-v4-flash-free": [
+      "acp-hermes-agent"
+    ],
+    "deepseek-v4-flash-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-v4-flash-vision-exp": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-v4-pro": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-v4-pro-0813": [
+      "pi",
+      "acp-omp"
+    ],
+    "deepseek-v4.1-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "default": [
+      "acp-omp"
+    ],
+    "devstral": [
+      "acp-omp"
+    ],
+    "devstral-2512": [
+      "pi",
+      "acp-omp"
+    ],
+    "devstral-small": [
+      "acp-omp"
+    ],
+    "elephant-alpha": [
+      "acp-omp"
+    ],
+    "ernie-4.5-21b-a3b": [
+      "acp-omp"
+    ],
+    "ernie-4.5-vl-28b-a3b": [
+      "acp-omp"
+    ],
+    "exacto": [
+      "acp-omp"
+    ],
+    "extended": [
+      "acp-omp"
+    ],
+    "free": [
+      "pi",
+      "acp-omp"
+    ],
+    "fugu": [
+      "pi",
+      "acp-omp"
+    ],
+    "fugu-ultra-v2": [
+      "pi",
+      "acp-omp"
+    ],
+    "fusion": [
+      "pi"
+    ],
+    "gemini-2.0-flash-001": [
+      "acp-omp"
+    ],
+    "gemini-2.0-flash-lite-001": [
+      "acp-omp"
+    ],
+    "gemini-2.5-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-2.5-flash-lite": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-2.5-flash-lite-preview-09-2025": [
+      "acp-omp"
+    ],
+    "gemini-2.5-flash-preview-09-2025": [
+      "acp-omp"
+    ],
+    "gemini-2.5-pro": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-2.5-pro-preview": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-2.5-pro-preview-05-06": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-3-flash": [
+      "acp-omp"
+    ],
+    "gemini-3-flash-preview": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-3-pro": [
+      "acp-omp"
+    ],
+    "gemini-3-pro-image": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-3-pro-preview": [
+      "acp-omp"
+    ],
+    "gemini-3.1-flash-lite": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-3.1-flash-lite-preview": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-3.1-pro": [
+      "acp-omp"
+    ],
+    "gemini-3.1-pro-preview": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-3.1-pro-preview-customtools": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-3.5-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-3.5-flash-lite": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-3.6-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-3.7-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-3.8-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-flash-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemini-pro-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemma-3-12b-it": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemma-3-27b-it": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemma-4-26b-a4b-it": [
+      "pi",
+      "acp-omp"
+    ],
+    "gemma-4-31b-it": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-4-32b": [
+      "acp-omp"
+    ],
+    "glm-4.5": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-4.5-air": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-4.5v": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-4.6": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-4.6v": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-4.7": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-4.7-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-5": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-5-turbo": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-5.1": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-5.2": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-5.3": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-5.3-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-5v-turbo": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-flash-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "glm-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-3.5-turbo": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-3.5-turbo-0613": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-3.5-turbo-16k": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-4": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-4-0314": [
+      "acp-omp"
+    ],
+    "gpt-4-1106-preview": [
+      "acp-omp"
+    ],
+    "gpt-4-turbo": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-4-turbo-preview": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-4.1": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-4.1-mini": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-4.1-nano": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-4o": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-4o-2024-05-13": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-4o-2024-08-06": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-4o-2024-11-20": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-4o-audio-preview": [
+      "acp-omp"
+    ],
+    "gpt-4o-mini": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-4o-mini-2024-07-18": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5-codex": [
+      "acp-omp"
+    ],
+    "gpt-5-image": [
+      "acp-omp"
+    ],
+    "gpt-5-image-mini": [
+      "acp-omp"
+    ],
+    "gpt-5-mini": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5-nano": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5-pro": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.1": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.1-chat": [
+      "acp-omp"
+    ],
+    "gpt-5.1-codex": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.1-codex-max": [
+      "acp-omp"
+    ],
+    "gpt-5.1-codex-mini": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.2": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.2-chat": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.2-codex": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.2-codex-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.2-codex-high-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.2-codex-low-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.2-codex-xhigh-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.2-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.2-high-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.2-low-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.2-pro": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.2-xhigh-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.3-chat": [
+      "acp-omp"
+    ],
+    "gpt-5.3-codex": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.3-codex-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.3-codex-high-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.3-codex-low-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.3-codex-spark": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.3-codex-spark-preview": [
+      "acp-omp"
+    ],
+    "gpt-5.3-codex-xhigh-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.4": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.4-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.4-mini": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.4-nano": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.4-pro": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.5": [
+      "codex",
+      "pi",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "gpt-5.5-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.5-pro": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.6-luna": [
+      "codex",
+      "pi",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "gpt-5.6-luna-900k": [
+      "acp-hermes-agent"
+    ],
+    "gpt-5.6-luna-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.6-luna-pro": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.6-sol": [
+      "codex",
+      "pi",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "gpt-5.6-sol-900k": [
+      "acp-hermes-agent"
+    ],
+    "gpt-5.6-sol-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.6-sol-pro": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-5.6-terra": [
+      "codex",
+      "pi",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "gpt-5.6-terra-900k": [
+      "acp-hermes-agent"
+    ],
+    "gpt-5.6-terra-fast": [
+      "acp-omp"
+    ],
+    "gpt-5.6-terra-pro": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-6-astra": [
+      "codex",
+      "pi",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "gpt-6-astra-pro": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-astra-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-audio": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-audio-mini": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-chat-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-daybreak-blue-latest": [
+      "acp-omp"
+    ],
+    "gpt-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-luna-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-mini-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-oss-120b": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-oss-20b": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-oss-safeguard-20b": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-sol-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "gpt-terra-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "granite-4.1-8b": [
+      "acp-omp"
+    ],
+    "granite-4.2-8b": [
+      "pi",
+      "acp-omp"
+    ],
+    "grok-3": [
+      "acp-omp"
+    ],
+    "grok-3-beta": [
+      "acp-omp"
+    ],
+    "grok-3-mini": [
+      "acp-omp"
+    ],
+    "grok-3-mini-beta": [
+      "acp-omp"
+    ],
+    "grok-4": [
+      "acp-omp"
+    ],
+    "grok-4-fast": [
+      "acp-omp"
+    ],
+    "grok-4.1-fast": [
+      "acp-omp"
+    ],
+    "grok-4.20": [
+      "pi",
+      "acp-omp"
+    ],
+    "grok-4.20-0309-non-reasoning": [
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "grok-4.20-0309-reasoning": [
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "grok-4.20-beta": [
+      "acp-omp"
+    ],
+    "grok-4.20-multi-agent-0309": [
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "grok-4.3": [
+      "pi",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "grok-4.5": [
+      "pi",
+      "acp-omp",
+      "acp-grok",
+      "acp-hermes-agent"
+    ],
+    "grok-4.6": [
+      "pi",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "grok-build": [
+      "acp-omp"
+    ],
+    "grok-build-0.1": [
+      "pi",
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "grok-code-fast-1": [
+      "acp-omp"
+    ],
+    "grok-composer-2.5-fast": [
+      "acp-omp",
+      "acp-hermes-agent"
+    ],
+    "grok-imagine-image": [
+      "acp-hermes-agent"
+    ],
+    "grok-imagine-image-2.0": [
+      "acp-hermes-agent"
+    ],
+    "grok-imagine-image-quality": [
+      "acp-hermes-agent"
+    ],
+    "grok-imagine-video": [
+      "acp-hermes-agent"
+    ],
+    "grok-imagine-video-1.5": [
+      "acp-hermes-agent"
+    ],
+    "grok-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "healer-alpha": [
+      "acp-omp"
+    ],
+    "hermes-4-70b": [
+      "acp-omp"
+    ],
+    "hunter-alpha": [
+      "acp-omp"
+    ],
+    "hy3": [
+      "pi",
+      "acp-omp"
+    ],
+    "hy3-preview": [
+      "pi",
+      "acp-omp"
+    ],
+    "hy4-preview": [
+      "pi",
+      "acp-omp"
+    ],
+    "inkling": [
+      "pi",
+      "acp-omp"
+    ],
+    "inkling-small": [
+      "pi",
+      "acp-omp"
+    ],
+    "intellect-3": [
+      "acp-omp"
+    ],
+    "jamba-large-1.7": [
+      "acp-omp"
+    ],
+    "kat-coder-air-v2.5": [
+      "acp-omp"
+    ],
+    "kat-coder-pro": [
+      "acp-omp"
+    ],
+    "kat-coder-pro-v2": [
+      "pi",
+      "acp-omp"
+    ],
+    "kat-coder-pro-v2.5": [
+      "pi",
+      "acp-omp"
+    ],
+    "kimi-k2": [
+      "pi",
+      "acp-omp"
+    ],
+    "kimi-k2-0905": [
+      "pi",
+      "acp-omp"
+    ],
+    "kimi-k2-thinking": [
+      "pi",
+      "acp-omp"
+    ],
+    "kimi-k2.5": [
+      "pi",
+      "acp-omp"
+    ],
+    "kimi-k2.6": [
+      "pi",
+      "acp-omp"
+    ],
+    "kimi-k2.7-code": [
+      "pi",
+      "acp-omp"
+    ],
+    "kimi-k3": [
+      "pi",
+      "acp-omp"
+    ],
+    "kimi-latest": [
+      "pi",
+      "acp-omp"
+    ],
+    "l3-euryale-70b": [
+      "acp-omp"
+    ],
+    "l3.1-euryale-70b": [
+      "pi",
+      "acp-omp"
+    ],
+    "laguna-m.1": [
+      "acp-omp"
+    ],
+    "laguna-s-2.1": [
+      "pi",
+      "acp-omp"
+    ],
+    "laguna-xs-2.1": [
+      "pi",
+      "acp-omp"
+    ],
+    "laguna-xs.2": [
+      "acp-omp"
+    ],
+    "ling-2.6-1t": [
+      "acp-omp"
+    ],
+    "ling-2.6-flash": [
+      "acp-omp"
+    ],
+    "ling-3.0-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "ling-3.0-flash-fin": [
+      "pi",
+      "acp-omp"
+    ],
+    "ling-3.0-flash-fin-free": [
+      "acp-hermes-agent"
+    ],
+    "ling-3.0-flash-vl": [
+      "pi",
+      "acp-omp"
+    ],
+    "llama-3-8b-instruct": [
+      "acp-omp"
+    ],
+    "llama-3.1-405b-instruct": [
+      "acp-omp"
+    ],
+    "llama-3.1-70b-instruct": [
+      "pi",
+      "acp-omp"
+    ],
+    "llama-3.1-8b-instruct": [
+      "pi",
+      "acp-omp"
+    ],
+    "llama-3.1-nemotron-70b-instruct": [
+      "acp-omp"
+    ],
+    "llama-3.3-70b-instruct": [
+      "pi",
+      "acp-omp"
+    ],
+    "llama-3.3-nemotron-super-49b-v1.5": [
+      "acp-omp"
+    ],
+    "llama-4-maverick": [
+      "pi",
+      "acp-omp"
+    ],
+    "llama-4-scout": [
+      "pi",
+      "acp-omp"
+    ],
+    "longcat-2.0": [
+      "pi",
+      "acp-omp"
+    ],
+    "longcat-flash-chat": [
+      "acp-omp"
+    ],
+    "mercury": [
+      "acp-omp"
+    ],
+    "mercury-2": [
+      "pi",
+      "acp-omp"
+    ],
+    "mercury-2.5": [
+      "pi",
+      "acp-omp"
+    ],
+    "mercury-2.5-preview": [
+      "pi",
+      "acp-omp"
+    ],
+    "mercury-coder": [
+      "acp-omp"
+    ],
+    "mimo-v2-flash": [
+      "acp-omp"
+    ],
+    "mimo-v2-omni": [
+      "acp-omp"
+    ],
+    "mimo-v2-pro": [
+      "acp-omp"
+    ],
+    "mimo-v2.5": [
+      "pi",
+      "acp-omp"
+    ],
+    "mimo-v2.5-free": [
+      "acp-hermes-agent"
+    ],
+    "mimo-v2.5-pro": [
+      "pi",
+      "acp-omp"
+    ],
+    "minimax-m1": [
+      "pi",
+      "acp-omp"
+    ],
+    "minimax-m2": [
+      "pi",
+      "acp-omp"
+    ],
+    "minimax-m2.1": [
+      "pi",
+      "acp-omp"
+    ],
+    "minimax-m2.5": [
+      "pi",
+      "acp-omp"
+    ],
+    "minimax-m2.7": [
+      "pi",
+      "acp-omp"
+    ],
+    "minimax-m3": [
+      "pi",
+      "acp-omp"
+    ],
+    "ministral-14b-2512": [
+      "pi",
+      "acp-omp"
+    ],
+    "ministral-3b-2512": [
+      "pi",
+      "acp-omp"
+    ],
+    "ministral-8b-2512": [
+      "pi",
+      "acp-omp"
+    ],
+    "mistral-large": [
+      "pi",
+      "acp-omp"
+    ],
+    "mistral-large-2407": [
+      "pi",
+      "acp-omp"
+    ],
+    "mistral-large-2411": [
+      "acp-omp"
+    ],
+    "mistral-large-2512": [
+      "pi",
+      "acp-omp"
+    ],
+    "mistral-medium-3": [
+      "pi",
+      "acp-omp"
+    ],
+    "mistral-medium-3-5": [
+      "pi",
+      "acp-omp"
+    ],
+    "mistral-medium-3.1": [
+      "pi",
+      "acp-omp"
+    ],
+    "mistral-nemo": [
+      "pi",
+      "acp-omp"
+    ],
+    "mistral-saba": [
+      "pi",
+      "acp-omp"
+    ],
+    "mistral-small-24b-instruct-2501": [
+      "acp-omp"
+    ],
+    "mistral-small-2603": [
+      "pi",
+      "acp-omp"
+    ],
+    "mistral-small-3.1-24b-instruct": [
+      "acp-omp"
+    ],
+    "mistral-small-3.2-24b-instruct": [
+      "pi",
+      "acp-omp"
+    ],
+    "mistral-small-creative": [
+      "acp-omp"
+    ],
+    "mixtral-8x22b-instruct": [
+      "pi",
+      "acp-omp"
+    ],
+    "mixtral-8x7b-instruct": [
+      "acp-omp"
+    ],
+    "muse-glimmer-30b": [
+      "pi",
+      "acp-omp"
+    ],
+    "muse-spark-1.1": [
+      "pi",
+      "acp-omp"
+    ],
+    "muse-spark-1.2": [
+      "pi",
+      "acp-omp"
+    ],
+    "muse-spark-1.2-contributor": [
+      "pi",
+      "acp-omp"
+    ],
+    "muse-spark-1.2-contributor-free": [
+      "acp-hermes-agent"
+    ],
+    "muse-spark-1.3": [
+      "pi",
+      "acp-omp"
+    ],
+    "muse-spark-1.3-contributor": [
+      "pi",
+      "acp-omp"
+    ],
+    "muse-spark-1.3-contributor-free": [
+      "acp-hermes-agent"
+    ],
+    "nemotron-3-nano-30b-a3b": [
+      "pi",
+      "acp-omp"
+    ],
+    "nemotron-3-super-120b-a12b": [
+      "pi",
+      "acp-omp"
+    ],
+    "nemotron-3-ultra-550b-a55b": [
+      "pi",
+      "acp-omp"
+    ],
+    "nemotron-3-ultra-free": [
+      "acp-hermes-agent"
+    ],
+    "nemotron-3.5-lightning": [
+      "pi",
+      "acp-omp"
+    ],
+    "nemotron-3.5-lightning-free": [
+      "acp-hermes-agent"
+    ],
+    "nemotron-nano-9b-v2": [
+      "acp-omp"
+    ],
+    "nex-n2-mini": [
+      "pi",
+      "acp-omp"
+    ],
+    "nex-n2-pro": [
+      "pi",
+      "acp-omp"
+    ],
+    "nova-2-lite-v1": [
+      "pi",
+      "acp-omp"
+    ],
+    "nova-lite-v1": [
+      "pi",
+      "acp-omp"
+    ],
+    "nova-micro-v1": [
+      "pi",
+      "acp-omp"
+    ],
+    "nova-premier-v1": [
+      "pi",
+      "acp-omp"
+    ],
+    "nova-pro-v1": [
+      "pi",
+      "acp-omp"
+    ],
+    "o1": [
+      "pi",
+      "acp-omp"
+    ],
+    "o3": [
+      "pi",
+      "acp-omp"
+    ],
+    "o3-deep-research": [
+      "acp-omp"
+    ],
+    "o3-mini": [
+      "pi",
+      "acp-omp"
+    ],
+    "o3-pro": [
+      "pi",
+      "acp-omp"
+    ],
+    "o4-mini": [
+      "pi",
+      "acp-omp"
+    ],
+    "o4-mini-deep-research": [
+      "acp-omp"
+    ],
+    "olmo-3.1-32b-instruct": [
+      "acp-omp"
+    ],
+    "ornith-1.5-35b-a3b-mlx-8bit": [
+      "pi",
+      "acp-omp"
+    ],
+    "owl-alpha": [
+      "acp-omp"
+    ],
+    "ox-alpha": [
+      "acp-omp"
+    ],
+    "pixtral-large-2411": [
+      "acp-omp"
+    ],
+    "qwen": [
+      "acp-omp"
+    ],
+    "qwen-2.5-72b-instruct": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen-2.5-7b-instruct": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen-3.8-27b-uncensored-8-bit-mlx": [
+      "acp-omp"
+    ],
+    "qwen-plus": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen-plus-2025-07-28": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen-turbo": [
+      "acp-omp"
+    ],
+    "qwen-vl": [
+      "acp-omp"
+    ],
+    "qwen3": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-14b": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-235b-a22b": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-235b-a22b-2507": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-235b-a22b-thinking-2507": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-30b-a3b": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-30b-a3b-instruct-2507": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-30b-a3b-thinking-2507": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-32b": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-4b": [
+      "acp-omp"
+    ],
+    "qwen3-8b": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-coder": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-coder-30b-a3b-instruct": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-coder-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-coder-next": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-coder-plus": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-max-thinking": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-next-80b-a3b-instruct": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-next-80b-a3b-thinking": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-vl-235b-a22b-instruct": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-vl-235b-a22b-thinking": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-vl-30b-a3b-instruct": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-vl-30b-a3b-thinking": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-vl-32b-instruct": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-vl-8b-instruct": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3-vl-8b-thinking": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.5-122b-a10b": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.5-27b": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.5-35b-a3b": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.5-397b-a17b": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.5-9b": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.5-flash-02-23": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.5-plus": [
+      "acp-omp"
+    ],
+    "qwen3.5-plus-02-15": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.6-27b": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.6-35b-a3b": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.6-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.6-max-preview": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.6-plus": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.7": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.7-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.7-plus": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.8": [
+      "acp-omp"
+    ],
+    "qwen3.8-2.4t-a95b": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.8-27b": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.8-27b-uncensored@q6_k": [
+      "pi"
+    ],
+    "qwen3.8-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwen3.8-max-0902": [
+      "pi",
+      "acp-omp"
+    ],
+    "qwq-32b": [
+      "acp-omp"
+    ],
+    "reka-edge": [
+      "pi",
+      "acp-omp"
+    ],
+    "relace-search": [
+      "pi",
+      "acp-omp"
+    ],
+    "ring-2.6-1t": [
+      "acp-omp"
+    ],
+    "rnj-1-instruct": [
+      "acp-omp"
+    ],
+    "rocinante-12b": [
+      "acp-omp"
+    ],
+    "sakana-namazu": [
+      "pi",
+      "acp-omp"
+    ],
+    "seed-1.6": [
+      "pi",
+      "acp-omp"
+    ],
+    "seed-1.6-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "seed-2-1-turbo": [
+      "pi",
+      "acp-omp"
+    ],
+    "seed-2.0-code": [
+      "pi",
+      "acp-omp"
+    ],
+    "seed-2.0-lite": [
+      "pi",
+      "acp-omp"
+    ],
+    "seed-2.0-mini": [
+      "pi",
+      "acp-omp"
+    ],
+    "solar-pro-3": [
+      "pi",
+      "acp-omp"
+    ],
+    "solar-pro4": [
+      "pi",
+      "acp-omp"
+    ],
+    "step-3.5-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "step-3.7-flash": [
+      "pi",
+      "acp-omp"
+    ],
+    "thinking": [
+      "acp-omp"
+    ],
+    "tng-r1t-chimera": [
+      "acp-omp"
+    ],
+    "tongyi-deepresearch-30b-a3b": [
+      "acp-omp"
+    ],
+    "trinity-large-preview": [
+      "acp-omp"
+    ],
+    "trinity-large-thinking": [
+      "pi",
+      "acp-omp"
+    ],
+    "trinity-mini": [
+      "acp-omp"
+    ],
+    "union-alpha": [
+      "pi",
+      "acp-omp"
+    ],
+    "unslopnemo-12b": [
+      "pi",
+      "acp-omp"
+    ],
+    "virtuoso-large": [
+      "acp-omp"
+    ],
+    "voxtral-small-24b-2507": [
+      "pi",
+      "acp-omp"
+    ]
+  }
+}

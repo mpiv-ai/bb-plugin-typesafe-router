@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "strict": true,
+    "resolveJsonModule": true,
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
@@ -26,6 +27,7 @@
     "app.tsx",
     "components",
     "lib",
+    "datasets",
     "hooks",
     "vitest.config.ts",
     "vitest.setup.ts"

@@ -1,2 +1,5 @@
 dist/
 node_modules/
+datasets/replay-report.json
+
+.scratch/

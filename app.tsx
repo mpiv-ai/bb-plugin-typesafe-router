@@ -1,9 +1,16 @@
-// TypeSafe router — the two surfaces routing needs while it holds a message.
+// TypeSafe router — the surfaces routing needs while it holds a message, plus
+// the settings section on the plugin's own page.
 //
 // A held dispatch is invisible in the timeline by design (a `wait` writes no
 // thread event), so the only places a person can learn what is happening are
 // the composer banner and, when a proposal is ready, the pending-interaction
 // card that replaces the composer.
+//
+// The settings section is the third surface. BB already renders a form for the
+// declared settings; this one exists because the useful question is "which of
+// the harnesses ON THIS MACHINE may Jev pick from", and that list is live
+// server state, not something a person should have to type provider ids to
+// answer. The controls write plugin storage through RPC.
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -14,9 +21,10 @@ import {
   useRpc,
 } from "@get-bb/plugin-sdk/app";
 import type { PluginPendingInteractionProps } from "@get-bb/plugin-sdk/app";
-import type { rpcContract, RoutingView } from "./server";
+import type { rpcContract, RoutingView, SettingsState } from "./server";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { SettingsControls } from "./components/settings-controls";
 
 /** Must match CONFIRM_RENDERER_ID in server.ts. */
 const CONFIRM_RENDERER_ID = "typesafe-confirm";
@@ -185,6 +193,51 @@ function ConfirmCard({ interaction, submit, cancel }: PluginPendingInteractionPr
   );
 }
 
+/**
+ * The plugin's settings section. Reads and writes only through RPC, so the
+ * preferences stay in plugin storage.
+ */
+function SettingsPanel() {
+  const rpc = useRpc<typeof rpcContract>();
+  const [state, setState] = useState<SettingsState | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const absorb = useCallback((next: SettingsState) => {
+    setState(next);
+    setError(null);
+  }, []);
+  const report = useCallback((cause: unknown) => {
+    setError(cause instanceof Error ? cause.message : String(cause));
+  }, []);
+
+  useEffect(() => {
+    rpc.call("settings_state").then(absorb, report);
+  }, [rpc, absorb, report]);
+
+  const apply = useCallback(
+    (run: () => Promise<SettingsState>) => {
+      setBusy(true);
+      run()
+        .then(absorb, report)
+        .finally(() => setBusy(false));
+    },
+    [absorb, report],
+  );
+
+  if (state === null) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {error ?? "Loading routing preferences…"}
+      </p>
+    );
+  }
+
+  return <SettingsControls state={state} busy={busy} error={error}
+    onEnabled={enabled => apply(() => rpc.call("settings_update", { enabled }))}
+    onHarness={(providerId, allowed) => apply(() => rpc.call("settings_set_harness", { providerId, allowed }))}
+  />;
+}
+
 export default definePluginApp((app) => {
   app.composer.customize({
     id: "typesafe-routing-banner",
@@ -194,5 +247,13 @@ export default definePluginApp((app) => {
   app.slots.pendingInteraction({
     id: CONFIRM_RENDERER_ID,
     component: ConfirmCard,
+  });
+  // Renders on this plugin's page under Settings, beside the declared settings.
+  app.slots.settingsSection({
+    id: "routing-preferences",
+    title: "Routing preferences",
+    description:
+      "Choose which available harnesses TypeSafe may use.",
+    component: SettingsPanel,
   });
 });

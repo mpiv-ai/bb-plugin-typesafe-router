@@ -265,3 +265,7 @@ describe("decideDispatch on the picker stub", () => {
     );
   });
 });
+
+it("fails closed on exclude-all even on a real harness", () => {
+  expect(decideDispatch(input({ requestedProviderId: "codex", routing: routing({ phase: "skipped", detail: "every available harness is switched off in this plugin's settings" }) })).action).toBe("reject");
+});

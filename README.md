@@ -54,21 +54,51 @@ thread starts, the harness is locked; the model can still be changed normally.
 
 ## Configuration
 
-```
-bb plugin config typesafe-router set typesafeApiKey 'YOUR_KEY'   # secret
-bb plugin config typesafe-router set enabled false               # stop routing
-bb plugin reload typesafe-router
-```
+Open **Settings → Tools → TypeSafe Router**. The automatic form contains only
+`typesafeApiKey` (secret). The custom section contains one Route first messages
+switch and the live harness switches. Routing is enabled by default.
 
-Removing the plugin removes the picker row with it. Threads that were already
-routed keep running, because they run on a real harness.
+Preferences are stored in `bb.storage.kv` and apply on the next first message.
+The former `enabled`, `includeHarnesses`, `excludeHarnesses`,
+`maxModelsPerHarness`, and `curationMode` settings are migrated once. Include
+and exclude restrictions are preserved; the old cap and mode are archived but
+ignored. Exclude wins over include. An empty result never calls TypeSafe and
+rejects the held first message. The router stub is never a candidate.
+
+BB SDK 0.4.87 cannot read undeclared settings. The migration uses
+`bb.server.experimental_dataDir` to open `bb.db` read-only and selects only
+this plugin's five non-secret preference keys from `plugin_settings`. It never
+reads key material or writes core tables. If migration fails, loading fails
+without recording completion, so an upgrade cannot silently widen exclusions.
+Subsequent reads and writes use plugin storage only. This migration depends on
+the BB table schema and is covered with a temporary SQLite fixture.
+
+### Capability knowledge and model shortlist
+
+The router classifies the truncated first message locally as coding, agents,
+general, scientific, writing, or mixed. Unknown or tied signals use mixed.
+It collapses family aliases, ranks by that axis, then offers at most eight
+models per harness. Unmeasured models retain catalog order after scored models;
+the default wins only when choosing among aliases of the same family.
+
+`datasets/axis-scores.json` vendors public benchmark results with sources and
+a capture date. Scores are percentiles within each benchmark cohort, averaged
+per axis. Mixed averages the available axes. GDPval-AA knowledge work is the
+writing/office-work proxy; AutomationBench supplies the agents/ops axis.
+These small, heterogeneous cohorts are routing evidence, not a universal model
+leaderboard. Missing results are null and newer families do not inherit an
+older version's numbers. No benchmark is fetched during routing.
+
+Both Choice calls receive authored `what`, `not_for`, `tools`, and `examples`
+from `datasets/capability-cards.json`. Unknown cards say capabilities are
+unverified. Tools depend on the installed harness configuration. There are
+still exactly two serial Choice calls, followed by **Yep**.
 
 ## Privacy
 
 Only the first message's text is sent to TypeSafe, truncated to 4000
-characters, along with the project name and the **names and descriptions** of
-the harnesses and models being chosen between — BB catalog strings, not your
-content. The repository, the timeline, and later messages are not sent.
+characters, along with the project name and the live names/descriptions, authored capability cards, and snapshot ranks
+of the candidate harnesses and models. The repository, the timeline, and later messages are not sent.
 
 ## Troubleshooting
 
@@ -87,7 +117,14 @@ or Claude in the composer and send again.
 
 **TypeSafe keeps choosing the same harness.** Catalogs are per machine, and the
 picker row is excluded from them. If that machine only has one real harness
-installed, that is the only candidate.
+installed, that is the only candidate. Check the **Routing preferences** section
+on the plugin's settings page too — a harness switched off there is not offered.
+
+**"every available harness is switched off in this plugin's settings."** Your
+`includeHarnesses` / `excludeHarnesses` combination leaves nothing to route to,
+so the plugin refused rather than calling TypeSafe or starting a turn on the
+picker row. Switch a harness back on in **Routing preferences**; the settings
+page shows the same warning as soon as the count reaches zero.
 
 **Send is disabled on the New Thread page.** BB needs both a provider and a
 model. Pick **TypeSafe Router** *and* its **Choose harness and model** row.
@@ -105,7 +142,9 @@ hook itself only reads cheap state and answers. It holds the first message with
 
 1. Read this machine's live catalogs (`bb.sdk.providers.list` / `.models` for
    the thread's host — catalogs differ per machine, and one harness can offer
-   800+ models). Curate each harness to at most 8 models.
+   800+ models). Drop the harnesses your settings exclude, then curate each
+   survivor to at most eight models for the locally classified task axis. The catalogs themselves are
+   always fetched live; the settings only trim what Jev is shown.
 2. Two sequential TypeSafe Choice calls: **which harness**, then **which model
    inside that harness**. Hierarchical, because those are two different
    judgements and a flat 40-label question is neither.
@@ -129,11 +168,14 @@ harness instead.
 - `lib/provider-bridge.ts` — the minimum bridge: handshake, one model, and a
   refusal for `turn/start`.
 - `host.ts` — the `bb.host` artifact, which exists only to carry that bridge.
-- `lib/catalog.ts` — curation. Pure; no network.
+- `lib/catalog.ts` — curation and the harness filter. Pure; no network.
+- `lib/preferences.ts` — stored harness lists
+  parsed into the decisions routing makes. Pure.
 - `lib/policy.ts` — what to intercept and what to answer on a re-attempt. Pure.
 - `lib/router.ts` — the two Choice calls, against an injectable client.
 - `server.ts` — wiring: settings, the hook, the routing pass, RPC.
-- `app.tsx` — the composer banner and the confirmation card.
+- `app.tsx` — the composer banner, the confirmation card, and the settings
+  section on the plugin's page.
 - `skills/typesafe-router/SKILL.md` — what agents are told about routing.
 
 ## Contributing

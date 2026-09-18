@@ -4,11 +4,17 @@ import {
   curateModels,
   defaultModelFor,
   findHarness,
+  isHarnessAllowed,
   modelFamilyKey,
   type CatalogModel,
   type CatalogProvider,
+  type HarnessFilter,
 } from "./catalog.js";
 import { STUB_PROVIDER_ID } from "./provider.js";
+
+function filter(include: string[] = [], exclude: string[] = []): HarnessFilter {
+  return { include: new Set(include), exclude: new Set(exclude) };
+}
 
 function model(id: string, overrides: Partial<CatalogModel> = {}): CatalogModel {
   return {
@@ -23,8 +29,8 @@ function model(id: string, overrides: Partial<CatalogModel> = {}): CatalogModel 
 
 describe("modelFamilyKey", () => {
   it("collapses vendor prefixes, context tags, dates, and effort suffixes", () => {
-    expect(modelFamilyKey("cursor/claude-4.6-opus-high")).toBe("claude-4.6-opus");
-    expect(modelFamilyKey("cursor/claude-4.6-opus-max")).toBe("claude-4.6-opus");
+    expect(modelFamilyKey("cursor/claude-4.6-opus-high")).toBe("claude-opus-4-6");
+    expect(modelFamilyKey("cursor/claude-4.6-opus-max")).toBe("claude-opus-4-6");
     expect(modelFamilyKey("claude-opus-5[1m]")).toBe("claude-opus-5");
     expect(modelFamilyKey("anthropic:claude-sonnet-4-5-20250929")).toBe(
       "claude-sonnet-4-5",
@@ -47,16 +53,6 @@ describe("curateModels", () => {
       model(`vendor-${index}/model-${index}`),
     );
     expect(curateModels(models, 8)).toHaveLength(8);
-  });
-
-  it("always keeps the provider default even when it would rank low", () => {
-    const models = [
-      ...Array.from({ length: 20 }, (_, index) => model(`opus-${index}`)),
-      model("obscure-house-model", { isDefault: true }),
-    ];
-    const curated = curateModels(models, 8);
-    expect(curated).toHaveLength(8);
-    expect(curated.map((m) => m.id)).toContain("obscure-house-model");
   });
 
   it("collapses same-family variants to one entry", () => {
@@ -112,7 +108,7 @@ describe("buildCatalog", () => {
         ["acp-omp", [model("cursor/claude-4.6-opus-high")]],
         ["pi", []],
       ]),
-      8,
+      { max: 8 },
     );
     expect(catalog.map((harness) => harness.id)).toEqual(["codex", "acp-omp"]);
   });
@@ -122,7 +118,7 @@ describe("buildCatalog", () => {
     const catalog = buildCatalog(
       [{ id: "acp-opencode", displayName: "opencode", available: true }],
       new Map([["acp-opencode", big]]),
-      8,
+      { max: 8 },
     );
     expect(catalog[0]!.models.length).toBeLessThanOrEqual(8);
   });
@@ -131,9 +127,81 @@ describe("buildCatalog", () => {
     const catalog = buildCatalog(
       providers.filter((p) => p.available),
       new Map(providers.map((p) => [p.id, [model(`${p.id}-m`)]])),
-      8,
+      { max: 8 },
     );
     expect(catalog.map((h) => h.id)).toEqual(["codex", "acp-omp", "pi"]);
+  });
+});
+
+describe("isHarnessAllowed", () => {
+  it("allows everything when neither list is set", () => {
+    expect(isHarnessAllowed("codex")).toBe(true);
+    expect(isHarnessAllowed("codex", filter())).toBe(true);
+  });
+
+  it("narrows to the include list once it has an entry", () => {
+    expect(isHarnessAllowed("codex", filter(["codex"]))).toBe(true);
+    expect(isHarnessAllowed("pi", filter(["codex"]))).toBe(false);
+  });
+
+  it("applies exclude after include, so exclude wins", () => {
+    expect(isHarnessAllowed("codex", filter(["codex"], ["codex"]))).toBe(false);
+    expect(isHarnessAllowed("codex", filter([], ["codex"]))).toBe(false);
+  });
+
+  it("compares ids case-insensitively", () => {
+    expect(isHarnessAllowed("Codex", filter([], ["codex"]))).toBe(false);
+    expect(isHarnessAllowed("CODEX", filter(["codex"]))).toBe(true);
+  });
+
+  it("never allows the picker stub, however it is listed", () => {
+    expect(isHarnessAllowed(STUB_PROVIDER_ID)).toBe(false);
+    expect(isHarnessAllowed(STUB_PROVIDER_ID, filter([STUB_PROVIDER_ID]))).toBe(false);
+  });
+});
+
+describe("buildCatalog and the user's filter", () => {
+  const providers: CatalogProvider[] = [
+    { id: "codex", displayName: "Codex", available: true },
+    { id: "acp-omp", displayName: "omp", available: true },
+    { id: "pi", displayName: "Pi", available: true },
+  ];
+  const models = new Map(
+    providers.map((provider) => [provider.id, [model(`${provider.id}-m`)]]),
+  );
+
+  it("drops an excluded harness before TypeSafe sees the list", () => {
+    const catalog = buildCatalog(providers, models, { filter: filter([], ["acp-omp"]) });
+    expect(catalog.map((harness) => harness.id)).toEqual(["codex", "pi"]);
+  });
+
+  it("offers only the include list when it has entries", () => {
+    const catalog = buildCatalog(providers, models, { filter: filter(["pi"]) });
+    expect(catalog.map((harness) => harness.id)).toEqual(["pi"]);
+  });
+
+  it("skips an unknown id rather than failing", () => {
+    const catalog = buildCatalog(providers, models, {
+      filter: filter(["codex", "harness-that-left"], ["also-gone"]),
+    });
+    expect(catalog.map((harness) => harness.id)).toEqual(["codex"]);
+  });
+
+  it("returns an empty catalog when the filter leaves nothing", () => {
+    expect(buildCatalog(providers, models, { filter: filter([], ["codex", "acp-omp", "pi"]) })).toEqual(
+      [],
+    );
+    // The same outcome from the other direction: an include list naming only
+    // harnesses this machine does not have.
+    expect(buildCatalog(providers, models, { filter: filter(["nowhere"]) })).toEqual([]);
+  });
+
+  it("defaults to the built-in cap and every harness when given no options", () => {
+    expect(buildCatalog(providers, models).map((harness) => harness.id)).toEqual([
+      "codex",
+      "acp-omp",
+      "pi",
+    ]);
   });
 });
 
@@ -169,7 +237,7 @@ describe("buildCatalog and the picker stub", () => {
   ]);
 
   it("omits the stub even when it is available and has a model", () => {
-    const catalog = buildCatalog(withStub, models, 8);
+    const catalog = buildCatalog(withStub, models, { max: 8 });
     expect(catalog.map((harness) => harness.id)).toEqual(["codex", "claude-code"]);
   });
 
@@ -177,13 +245,13 @@ describe("buildCatalog and the picker stub", () => {
     const catalog = buildCatalog(
       [{ id: STUB_PROVIDER_ID, displayName: "TypeSafe Router", available: true }],
       models,
-      8,
+      { max: 8 },
     );
     expect(catalog).toEqual([]);
   });
 
   it("cannot be looked up by id once the catalog is built", () => {
-    const catalog = buildCatalog(withStub, models, 8);
+    const catalog = buildCatalog(withStub, models, { max: 8 });
     expect(findHarness(catalog, STUB_PROVIDER_ID)).toBeNull();
     expect(findHarness(catalog, "codex")?.id).toBe("codex");
   });

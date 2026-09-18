@@ -21,6 +21,14 @@ Follow-ups, steers, retries, hidden worker threads, agent-started threads, and
 other plugins' spawns are never intercepted. Without an API key the plugin
 blocks nothing on a thread that already has a real harness.
 
+**Tuning it.** The plugin's page under Settings has a **Routing preferences**
+section that lists the harnesses this machine actually has as switches — turn
+one off and it stops being offered, without typing a provider id anywhere. The
+section has only a routing switch and live harness switches. The automatic
+form contains only the secret API key. Models are ranked by a local task-axis
+classifier and a vendored public-eval snapshot, capped at eight. Capability
+cards describe the candidates in both TypeSafe calls.
+
 **Requirements.** BB `>= 0.43` with Plugin SDK `>= 0.4.87`, a TypeSafe API key
 from <https://console.typesafe.ai> (this plugin ships no key), and at least one
 real harness already working on that machine. Catalogs are per machine, so
