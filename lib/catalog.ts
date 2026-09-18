@@ -1,6 +1,7 @@
 import { axisScore } from "./knowledge.js";
 import { modelFamilyKey } from "./family.js";
 import type { TaskAxis } from "./task-axis.js";
+import type { PermissionMode, ReasoningLevel, ServiceTier } from "./execution.js";
 export { modelFamilyKey } from "./family.js";
 
 import { isRoutableProviderId } from "./provider.js";
@@ -12,6 +13,10 @@ export interface CatalogModel {
   displayName: string;
   description: string;
   isDefault: boolean;
+  /** Efforts the model accepts, lowest to highest; absent when the catalog did not say. */
+  reasoningLevels?: readonly ReasoningLevel[];
+  /** The model's own default effort; absent when the catalog did not say. */
+  defaultReasoningLevel?: ReasoningLevel;
 }
 
 /** One harness (BB provider) plus the curated models we will offer for it. */
@@ -19,6 +24,9 @@ export interface CatalogHarness {
   id: string;
   displayName: string;
   models: CatalogModel[];
+  permissionModes?: readonly PermissionMode[];
+  /** Empty or absent when the harness has no service-tier choice. */
+  serviceTiers?: readonly ServiceTier[];
 }
 
 /** A provider as `bb.sdk.providers.list` reports it, narrowed to what routing needs. */
@@ -26,6 +34,8 @@ export interface CatalogProvider {
   id: string;
   displayName: string;
   available: boolean;
+  permissionModes?: readonly PermissionMode[];
+  serviceTiers?: readonly ServiceTier[];
 }
 
 export const MAX_MODELS_PER_HARNESS = 8;
@@ -121,7 +131,13 @@ export function buildCatalog(
     const availableModels = modelsByProvider.get(provider.id) ?? [];
     const models = deferShortlist ? [...availableModels] : curateModels(availableModels, max, axis);
     if (models.length === 0) continue;
-    harnesses.push({ id: provider.id, displayName: provider.displayName, models });
+    harnesses.push({
+      id: provider.id,
+      displayName: provider.displayName,
+      models,
+      ...(provider.permissionModes === undefined ? {} : { permissionModes: provider.permissionModes }),
+      ...(provider.serviceTiers === undefined ? {} : { serviceTiers: provider.serviceTiers }),
+    });
   }
   return harnesses;
 }
